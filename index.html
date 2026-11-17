@@ -184,6 +184,10 @@ details p,details ul{font-size:14.5px;margin:8px 0 0}details ul{padding-left:18p
 .maker{display:flex;gap:14px;align-items:center}
 .avatar{width:52px;height:52px;border-radius:50%;background:var(--wine);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-weight:800;font-size:22px;flex:none}
 .mlinks{display:flex;gap:8px;margin-top:12px}.mlinks button{flex:1}
+.sug{display:flex;flex-direction:column;margin-top:6px;border-radius:12px;overflow:hidden;border:1px solid var(--line)}.sug:empty{display:none}
+.sug button{display:block;width:100%;text-align:left;border:none;border-top:1px solid var(--line);background:var(--card);padding:9px 12px;min-height:48px}
+.sug button:first-child{border-top:none}.sug button:hover,.sug button:focus-visible{background:var(--soft)}
+.sug b{display:block;font-size:15px;font-weight:600}.sug small{display:block;color:var(--muted);font-size:13px}
 .sbtn{display:flex;align-items:center;justify-content:center;text-decoration:none}.sbtn.off{opacity:.4;pointer-events:none}
 .lt{display:block;width:auto;max-width:76px;object-fit:cover;border-radius:6px;box-shadow:0 2px 8px rgba(40,10,20,.25);background:var(--soft)}
 .item.st{grid-template-columns:76px minmax(0,1fr);align-items:center}.item.st svg.b{width:40px;justify-self:center}
@@ -759,6 +763,7 @@ function enCached(name){
   const w = wines().find(x => norm(x.name) === k && x.nameEn); if(w) return w.nameEn;
   const m = S().market[mkey(name)]; if(m && m.en) return m.en;
   const kb = KB_WINES.find(x => norm(x.n) === k); if(kb) return kb.en;
+  const nk = koNorm(name); const wn = WINE_NAMES.find(x => x.key === nk); if(wn) return wn.en;
   return '';
 }
 /* 로그인 없이도 쓰는 한글→영문 변환: 와인 용어·생산자·품종·산지 사전 + 외래어 발음 표기 */
@@ -766,7 +771,39 @@ const KO_EN_RAW = `와인=|샤토=Chateau|샤또=Chateau|도멘=Domaine|도메�
 카베르네소비뇽=Cabernet Sauvignon|까베르네소비뇽=Cabernet Sauvignon|카베르네쇼비뇽=Cabernet Sauvignon|까베르네쇼비뇽=Cabernet Sauvignon|카베르네=Cabernet|까베르네=Cabernet|소비뇽=Sauvignon|쇼비뇽=Sauvignon|카베르네프랑=Cabernet Franc|메를로=Merlot|멀롯=Merlot|메롯=Merlot|멀로=Merlot|피노누아=Pinot Noir|피노누아르=Pinot Noir|삐노누아=Pinot Noir|피노그리지오=Pinot Grigio|피노그리=Pinot Gris|피노=Pinot|시라=Syrah|쉬라=Syrah|쉬라즈=Shiraz|시라즈=Shiraz|말벡=Malbec|말백=Malbec|산지오베제=Sangiovese|산조베제=Sangiovese|네비올로=Nebbiolo|네비뇰로=Nebbiolo|템프라니요=Tempranillo|템프라닐로=Tempranillo|뗌쁘라니요=Tempranillo|가르나차=Garnacha|그르나슈=Grenache|그르나쉬=Grenache|진판델=Zinfandel|프리미티보=Primitivo|카르메네르=Carmenere|까르메네르=Carmenere|피노타지=Pinotage|몬테풀치아노=Montepulciano|바르베라=Barbera|돌체토=Dolcetto|네로다볼라=Nero d'Avola|샤르도네=Chardonnay|샤도네이=Chardonnay|샤르도네이=Chardonnay|소비뇽블랑=Sauvignon Blanc|쇼비뇽블랑=Sauvignon Blanc|리슬링=Riesling|리즐링=Riesling|모스카토=Moscato|모스까또=Moscato|뮈스카=Muscat|게뷔르츠트라미너=Gewurztraminer|비오니에=Viognier|슈냉블랑=Chenin Blanc|세미용=Semillon|알바리뇨=Albarino|베르멘티노=Vermentino|그뤼너펠트리너=Gruner Veltliner|토론테스=Torrontes|프로세코=Prosecco|카바=Cava|까바=Cava|샴페인=Champagne|샹파뉴=Champagne|
 보르도=Bordeaux|부르고뉴=Bourgogne|버건디=Burgundy|샤블리=Chablis|상세르=Sancerre|론=Rhone|꼬뜨뒤론=Cotes du Rhone|코트뒤론=Cotes du Rhone|샤토뇌프뒤파프=Chateauneuf-du-Pape|알자스=Alsace|루아르=Loire|메독=Medoc|마고=Margaux|뽀이악=Pauillac|포이약=Pauillac|뽀이약=Pauillac|생테밀리옹=Saint-Emilion|포므롤=Pomerol|생줄리앙=Saint-Julien|페삭레오냥=Pessac-Leognan|소테른=Sauternes|보졸레=Beaujolais|키안티=Chianti|끼안티=Chianti|바롤로=Barolo|바르바레스코=Barbaresco|브루넬로=Brunello|몬탈치노=Montalcino|아마로네=Amarone|발폴리첼라=Valpolicella|토스카나=Toscana|피에몬테=Piemonte|랑게=Langhe|아스티=Asti|모스카토다스티=Moscato d'Asti|리오하=Rioja|리베라델두에로=Ribera del Duero|프리오라트=Priorat|나파밸리=Napa Valley|나파=Napa|밸리=Valley|소노마=Sonoma|멘도사=Mendoza|멘도자=Mendoza|마이포=Maipo|콜차구아=Colchagua|바로사=Barossa|말보로=Marlborough|모젤=Mosel|
 몬테스=Montes|알파=Alpha|카테나=Catena|까테나=Catena|자파타=Zapata|사파타=Zapata|루이자도=Louis Jadot|루이라뚜르=Louis Latour|루이라투르=Louis Latour|조셉드루앵=Joseph Drouhin|조셉드루엥=Joseph Drouhin|기갈=Guigal|샤푸티에=Chapoutier|폴자불레=Paul Jaboulet|펜폴즈=Penfolds|그랜지=Grange|옐로우테일=Yellow Tail|옐로테일=Yellow Tail|제이콥스크릭=Jacob's Creek|클라우디베이=Cloudy Bay|킴크로포드=Kim Crawford|빌라마리아=Villa Maria|오이스터베이=Oyster Bay|로버트몬다비=Robert Mondavi|몬다비=Mondavi|켄달잭슨=Kendall-Jackson|베린저=Beringer|케이머스=Caymus|실버오크=Silver Oak|스태그스립=Stag's Leap|오퍼스원=Opus One|덕혼=Duckhorn|디코이=Decoy|조쉬=Josh|크라임스=Crimes|아포틱=Apothic|산페드로=San Pedro|콘차이토로=Concha y Toro|카시예로델디아블로=Casillero del Diablo|까시예로델디아블로=Casillero del Diablo|디아블로=Diablo|돈멜초=Don Melchor|알마비바=Almaviva|에라주리즈=Errazuriz|에라쥬리즈=Errazuriz|산타리타=Santa Rita|운두라가=Undurraga|트라피체=Trapiche|안티노리=Antinori|티냐넬로=Tignanello|사시까이아=Sassicaia|사시카이아=Sassicaia|오르넬라이아=Ornellaia|솔라이아=Solaia|루피노=Ruffino|두칼레=Ducale|반피=Banfi|가야=Gaja|폰타나프레다=Fontanafredda|마르케시=Marchesi|비에티=Vietti|프레스코발디=Frescobaldi|카스텔로=Castello|마르케스데리스칼=Marques de Riscal|캄포비에호=Campo Viejo|토레스=Torres|베가시실리아=Vega Sicilia|우니코=Unico|프레시넷=Freixenet|코르동네그로=Cordon Negro|모엣샹동=Moet & Chandon|모엣앤샹동=Moet & Chandon|모에샹동=Moet & Chandon|모엣=Moet|샹동=Chandon|앵페리얼=Imperial|임페리얼=Imperial|뵈브클리코=Veuve Clicquot|돔페리뇽=Dom Perignon|크룩=Krug|볼랭저=Bollinger|테탱저=Taittinger|떼땅져=Taittinger|루이로드레=Louis Roederer|크리스탈=Cristal|페리에주에=Perrier-Jouet|로랑페리에=Laurent-Perrier|파이퍼하이직=Piper-Heidsieck|무통로칠드=Mouton Rothschild|무똥로칠드=Mouton Rothschild|무통로쉴드=Mouton Rothschild|라피트로칠드=Lafite Rothschild|라피트로쉴드=Lafite Rothschild|라피트=Lafite|라투르=Latour|라뚜르=Latour|오브리옹=Haut-Brion|페트뤼스=Petrus|슈발블랑=Cheval Blanc|탈보=Talbot|로마네콩티=Romanee-Conti|르로아=Leroy|닥터루젠=Dr. Loosen|닥터엘=Dr. L|위스퍼링엔젤=Whispering Angel|미라발=Miraval|간치아=Gancia|바이라=Vajra|마르티니=Martini|트림바크=Trimbach|칼로로시=Carlo Rossi|칼로로씨=Carlo Rossi|베어풋=Barefoot|그랜트버지=Grant Burge|울프블라스=Wolf Blass|하디스=Hardys|투핸즈=Two Hands|레이크체일리=Lake Chalice|빌라=Villa|엠=M|로쏘=Rosso|로소=Rosso|레오빌=Leoville|라스카스=Las Cases|에스쿠도로호=Escudo Rojo|비녜도=Vinedo|아드리아나=Adriana|그라프=Graves|코스데스투르넬=Cos d'Estournel|팔머=Palmer|린치바쥬=Lynch-Bages|랭쉬바쥬=Lynch-Bages|뒤크뤼보카이유=Ducru-Beaucaillou|피숑=Pichon|라랑드=Lalande|롱그빌=Longueville|베이첼=Beychevelle|글로리아=Gloria|칼롱세귀르=Calon-Segur|그뤼오라로즈=Gruaud-Larose|레드우드=Redwood|윌리엄페브르=William Fevre|도멘퐁소=Domaine Ponsot|파비=Pavie|안젤루스=Angelus|오존=Ausone|비노=Vino|로쏘디몬탈치노=Rosso di Montalcino|비노노빌레=Vino Nobile|몬테풀차노=Montepulciano|레미=Remy|투스칸=Tuscan|칠레=Chile|나바로=Navarro|블루넌=Blue Nun|무똥카데=Mouton Cadet|무통카데=Mouton Cadet|카데=Cadet|켄우드=Kenwood|조단=Jordan|프랑스=France`;
-const KO_EN = (() => { const m = new Map(); KO_EN_RAW.replace(/\n/g, '').split('|').forEach(p => { const [k, v] = p.split('='); if(k) m.set(k.replace(/\s/g, ''), v ?? ''); }); return m; })();
+/* 영어 단어를 한글로 쓴 와인 이름용 (브레드 앤 버터 → Bread & Butter) */
+const KO_EN_WORDS = `앤=&|앤드=&|엔=&|브레드=Bread|버터=Butter|롱=Long|반=Barn|블랙=Black|골드=Gold|골든=Golden|실버=Silver|엔젤=Angel|엔젤스=Angels|스톤=Stone|리버=River|힐=Hill|힐스=Hills|크릭=Creek|베이=Bay|마운틴=Mountain|스프링=Spring|스프링스=Springs|오크=Oak|우드=Wood|하우스=House|팜=Farm|캐년=Canyon|캐니언=Canyon|로드=Road|레이크=Lake|랜치=Ranch|셀러=Cellar|셀라=Cellars|셀라스=Cellars|셀러스=Cellars|패밀리=Family|가든=Garden|필드=Field|포레스트=Forest|박스=Box|퀸=Queen|킹=King|나이트=Night|문=Moon|스타=Star|선=Sun|라이언=Lion|이글=Eagle|울프=Wolf|베어=Bear|폭스=Fox|버드=Bird|크로우=Crow|레이븐=Raven|피그=Pig|캣=Cat|독=Dog|호스=Horse|덕=Duck|테일=Tail|핸즈=Hands|하트=Heart|소울=Soul|드림=Dream|시크릿=Secret|프리즈너=Prisoner|블렌드=Blend|프라이빗=Private|퍼스트=First|원=One|투=Two|쓰리=Three|파이브=Five|세븐=Seven|텐=Ten|마일=Mile|브릿지=Bridge|하버=Harbor|포인트=Point|아일랜드=Island|코스트=Coast|리지=Ridge|피크=Peak|메도우=Meadow|그린=Green|블루=Blue|핑크=Pink|퍼플=Purple|레이디=Lady|맨=Man|보이=Boy|걸=Girl|빅=Big|리틀=Little|올드=Old|뉴=New|와일드=Wild|해피=Happy|스윗=Sweet|크림=Cream|허니=Honey|체리=Cherry|베리=Berry|애플=Apple|피치=Peach|잼=Jam|초콜릿=Chocolate|커피=Coffee|바닐라=Vanilla|스모크=Smoke|스모킹=Smoking|파이어=Fire|아이스=Ice|스노우=Snow|레인=Rain|윈드=Wind|썬더=Thunder|스톰=Storm|오션=Ocean|씨=Sea|비치=Beach|선셋=Sunset|크라운=Crown|로열=Royal|로얄=Royal|카운티=County|타운=Town|시티=City|파크=Park|캐슬=Castle|타워=Tower|미션=Mission|와이너리=Winery|셀렉트=Select|시그니처=Signature|리미티드=Limited|에디션=Edition|스페셜=Special|컬렉션=Collection|시리즈=Series|프리미엄=Premium|그랜드=Grand|매직=Magic|러브=Love|키스=Kiss|조이=Joy|프렌즈=Friends|패션=Passion|엣지=Edge|클리프=Cliff|할로우=Hollow|크로스=Cross|로즈=Rose|플라워=Flower|리프=Leaf|트리=Tree|바인=Vine|바인즈=Vines|하비스트=Harvest|라벨=Label|디스커버리=Discovery|익스플로러=Explorer|저니=Journey|보야지=Voyage|헤리티지=Heritage|레거시=Legacy|레전드=Legend|오리진=Origin|아이콘=Icon|벨벳=Velvet|실크=Silk|스파클링=Sparkling|비앙코=Bianco|로쏘=Rosso|로소=Rosso|네로=Nero|노블=Noble|하이=High|로우=Low|노스=North|사우스=South|이스트=East|웨스트=West|센트럴=Central|더=The|오브=of|포=Four|투핸즈=Two Hands|프리즈너와인=Prisoner Wine|오리지널=Original|리저브=Reserve|클래식=Classic|빈티지=Vintage|오가닉=Organic|버터플라이=Butterfly|드래곤=Dragon|타이거=Tiger|레몬=Lemon|오렌지=Orange|밀크=Milk|플라잉=Flying|댄싱=Dancing|크레이지=Crazy|스위트하트=Sweetheart|트루=True|그레이스=Grace|메리=Merry|굿=Good|베스트=Best|팔콘=Falcon|호크=Hawk|아울=Owl|래빗=Rabbit|터틀=Turtle|고스트=Ghost|데빌=Devil|헤븐=Heaven|파라다이스=Paradise|선라이즈=Sunrise|미드나잇=Midnight|트와일라잇=Twilight|라이트=Light|다크=Dark|내추럴=Natural|내츄럴=Natural`;
+/* 국내에서 흔한 와인 (한글 이름 = 영문 이름) — 자동완성·정확한 변환용 */
+const WINE_NAMES_RAW = `몬테스 알파 카베르네 소비뇽=Montes Alpha Cabernet Sauvignon|몬테스 알파 메를로=Montes Alpha Merlot|몬테스 알파 샤르도네=Montes Alpha Chardonnay|몬테스 알파 시라=Montes Alpha Syrah|몬테스 알파 피노 누아=Montes Alpha Pinot Noir|몬테스 알파 엠=Montes Alpha M|몬테스 퍼플 엔젤=Montes Purple Angel|몬테스 폴리=Montes Folly|몬테스 클래식 카베르네 소비뇽=Montes Classic Series Cabernet Sauvignon|몬테스 클래식 메를로=Montes Classic Series Merlot|
+1865 셀렉티드 빈야드 카베르네 소비뇽=San Pedro 1865 Selected Vineyards Cabernet Sauvignon|1865 싱글 빈야드 카베르네 소비뇽=San Pedro 1865 Single Vineyard Cabernet Sauvignon|1865 셀렉티드 빈야드 카르메네르=San Pedro 1865 Selected Vineyards Carmenere|1865 셀렉티드 빈야드 말벡=San Pedro 1865 Selected Vineyards Malbec|산 페드로 가토 네그로=San Pedro Gato Negro|
+돈 멜초=Concha y Toro Don Melchor|카시예로 델 디아블로 카베르네 소비뇽=Casillero del Diablo Cabernet Sauvignon|카시예로 델 디아블로 메를로=Casillero del Diablo Merlot|카시예로 델 디아블로 샤르도네=Casillero del Diablo Chardonnay|카시예로 델 디아블로 소비뇽 블랑=Casillero del Diablo Sauvignon Blanc|카시예로 델 디아블로 데블스 컬렉션 레드=Casillero del Diablo Devil's Collection Red|마르케스 데 카사 콘차=Marques de Casa Concha|알마비바=Almaviva|세냐=Sena|에라주리즈 맥스 리제르바 카베르네 소비뇽=Errazuriz Max Reserva Cabernet Sauvignon|비녜도 채드윅=Vinedo Chadwick|산타 리타 120 카베르네 소비뇽=Santa Rita 120 Cabernet Sauvignon|산타 리타 메달라 레알=Santa Rita Medalla Real|코노 수르 비시클레타 피노 누아=Cono Sur Bicicleta Pinot Noir|코노 수르 비시클레타 카베르네 소비뇽=Cono Sur Bicicleta Cabernet Sauvignon|에스쿠도 로호=Baron Philippe de Rothschild Escudo Rojo|G7 카베르네 소비뇽=G7 Cabernet Sauvignon|도스 코파스=Dos Copas|
+카테나 말벡=Catena Malbec|카테나 알타 말벡=Catena Alta Malbec|카테나 자파타 아드리아나 빈야드 말벡=Catena Zapata Adrianna Vineyard Malbec|아드리아나 빈야드 말벡=Catena Zapata Adrianna Vineyard Malbec|니콜라스 카테나 자파타=Nicolas Catena Zapata|알라모스 말벡=Alamos Malbec|트라피체 말벡=Trapiche Malbec|트라피체 오크 캐스크 말벡=Trapiche Oak Cask Malbec|엘 에네미고 말벡=El Enemigo Malbec|루이지 보스카 말벡=Luigi Bosca Malbec|수사나 발보 크리오스 말벡=Susana Balbo Crios Malbec|테라자스 레세르바 말벡=Terrazas de los Andes Reserva Malbec|
+오퍼스 원=Opus One|오버추어=Opus One Overture|로버트 몬다비 나파 밸리 카베르네 소비뇽=Robert Mondavi Napa Valley Cabernet Sauvignon|로버트 몬다비 우드브릿지 카베르네 소비뇽=Woodbridge by Robert Mondavi Cabernet Sauvignon|로버트 몬다비 프라이빗 셀렉션 카베르네 소비뇽=Robert Mondavi Private Selection Cabernet Sauvignon|켄달 잭슨 빈트너스 리저브 샤르도네=Kendall-Jackson Vintner's Reserve Chardonnay|켄달 잭슨 빈트너스 리저브 카베르네 소비뇽=Kendall-Jackson Vintner's Reserve Cabernet Sauvignon|베린저 파운더스 에스테이트 카베르네 소비뇽=Beringer Founders' Estate Cabernet Sauvignon|케이머스 카베르네 소비뇽=Caymus Cabernet Sauvignon|케이머스 스페셜 셀렉션=Caymus Special Selection Cabernet Sauvignon|실버 오크 알렉산더 밸리 카베르네 소비뇽=Silver Oak Alexander Valley Cabernet Sauvignon|실버 오크 나파 밸리 카베르네 소비뇽=Silver Oak Napa Valley Cabernet Sauvignon|스태그스 립 아르테미스=Stag's Leap Wine Cellars Artemis Cabernet Sauvignon|덕혼 메를로=Duckhorn Merlot|디코이 카베르네 소비뇽=Decoy Cabernet Sauvignon|디코이 메를로=Decoy Merlot|조쉬 셀라 카베르네 소비뇽=Josh Cellars Cabernet Sauvignon|19 크라임스 레드=19 Crimes Red Blend|19 크라임스 스눕 독=19 Crimes Snoop Cali Red|아포틱 레드=Apothic Red|칼로 로시=Carlo Rossi|베어풋 카베르네 소비뇽=Barefoot Cabernet Sauvignon|더 프리즈너=The Prisoner Red Blend|프리즈너=The Prisoner Red Blend|메이오미 피노 누아=Meiomi Pinot Noir|조단 카베르네 소비뇽=Jordan Cabernet Sauvignon|쉐이퍼 힐사이드 셀렉트=Shafer Hillside Select Cabernet Sauvignon|할란 에스테이트=Harlan Estate|스크리밍 이글=Screaming Eagle|롬바우어 샤르도네=Rombauer Chardonnay|파 니엔테 샤르도네=Far Niente Chardonnay|케익브레드 샤르도네=Cakebread Cellars Chardonnay|브레드 앤 버터 샤르도네=Bread & Butter Chardonnay|브레드 앤 버터 피노 누아=Bread & Butter Pinot Noir|브레드 앤 버터 카베르네 소비뇽=Bread & Butter Cabernet Sauvignon|브레드 앤 버터=Bread & Butter|롱 반 카베르네 소비뇽=Long Barn Cabernet Sauvignon|롱 반 피노 누아=Long Barn Pinot Noir|롱 반 샤르도네=Long Barn Chardonnay|롱 반=Long Barn|샤토 생 미셸 리슬링=Chateau Ste. Michelle Riesling|갈로 패밀리=Gallo Family Vineyards|
+옐로우 테일 쉬라즈=Yellow Tail Shiraz|옐로우 테일 카베르네 소비뇽=Yellow Tail Cabernet Sauvignon|옐로우 테일 샤르도네=Yellow Tail Chardonnay|옐로우 테일 모스카토=Yellow Tail Moscato|제이콥스 크릭 쉬라즈 카베르네=Jacob's Creek Shiraz Cabernet|펜폴즈 쿠눙가 힐 쉬라즈 카베르네=Penfolds Koonunga Hill Shiraz Cabernet|펜폴즈 빈 2=Penfolds Bin 2|펜폴즈 빈 8=Penfolds Bin 8|펜폴즈 빈 28=Penfolds Bin 28 Shiraz|펜폴즈 빈 128=Penfolds Bin 128|펜폴즈 빈 389=Penfolds Bin 389|펜폴즈 빈 407=Penfolds Bin 407|펜폴즈 빈 707=Penfolds Bin 707|펜폴즈 세인트 앙리=Penfolds St Henri|펜폴즈 그랜지=Penfolds Grange|투 핸즈 엔젤스 쉐어 쉬라즈=Two Hands Angels' Share Shiraz|몰리두커 더 복서=Mollydooker The Boxer|울프 블라스 옐로우 라벨=Wolf Blass Yellow Label|토브렉 우드커터스 쉬라즈=Torbreck Woodcutter's Shiraz|헨쉬키 힐 오브 그레이스=Henschke Hill of Grace|다렌버그 데드 암 쉬라즈=d'Arenberg The Dead Arm Shiraz|
+클라우디 베이 소비뇽 블랑=Cloudy Bay Sauvignon Blanc|클라우디 베이 피노 누아=Cloudy Bay Pinot Noir|킴 크로포드 소비뇽 블랑=Kim Crawford Sauvignon Blanc|빌라 마리아 프라이빗 빈 소비뇽 블랑=Villa Maria Private Bin Sauvignon Blanc|오이스터 베이 소비뇽 블랑=Oyster Bay Sauvignon Blanc|오이스터 베이 피노 누아=Oyster Bay Pinot Noir|생 클레어 소비뇽 블랑=Saint Clair Sauvignon Blanc|브랑콧 에스테이트 소비뇽 블랑=Brancott Estate Sauvignon Blanc|
+샤토 마고=Chateau Margaux|파비용 루즈 뒤 샤토 마고=Pavillon Rouge du Chateau Margaux|샤토 라피트 로칠드=Chateau Lafite Rothschild|카뤼아드 드 라피트=Carruades de Lafite|샤토 무통 로칠드=Chateau Mouton Rothschild|르 프티 무통=Le Petit Mouton de Mouton Rothschild|샤토 라투르=Chateau Latour|레 포르 드 라투르=Les Forts de Latour|샤토 오브리옹=Chateau Haut-Brion|샤토 페트뤼스=Petrus|샤토 슈발 블랑=Chateau Cheval Blanc|샤토 오존=Chateau Ausone|샤토 앙젤뤼스=Chateau Angelus|샤토 파비=Chateau Pavie|샤토 팔머=Chateau Palmer|샤토 린치 바주=Chateau Lynch-Bages|샤토 탈보=Chateau Talbot|샤토 그뤼오 라로즈=Chateau Gruaud Larose|샤토 베이슈벨=Chateau Beychevelle|샤토 레오빌 라스 카스=Chateau Leoville Las Cases|샤토 레오빌 바르통=Chateau Leoville Barton|샤토 코스 데스투르넬=Chateau Cos d'Estournel|샤토 몽로즈=Chateau Montrose|샤토 피숑 바롱=Chateau Pichon Baron|샤토 피숑 라랑드=Chateau Pichon Longueville Comtesse de Lalande|샤토 칼롱 세귀르=Chateau Calon-Segur|샤토 뒤크뤼 보카이유=Chateau Ducru-Beaucaillou|샤토 글로리아=Chateau Gloria|샤토 디켐=Chateau d'Yquem|무통 카데 루즈=Mouton Cadet Rouge|무통 카데 블랑=Mouton Cadet Blanc|
+루이 자도 부르고뉴 피노 누아=Louis Jadot Bourgogne Pinot Noir|루이 자도 부르고뉴 샤르도네=Louis Jadot Bourgogne Chardonnay|루이 자도 샤블리=Louis Jadot Chablis|루이 자도 보졸레 빌라쥬=Louis Jadot Beaujolais-Villages|루이 자도 푸이 퓌세=Louis Jadot Pouilly-Fuisse|루이 라투르 부르고뉴 피노 누아=Louis Latour Bourgogne Pinot Noir|조셉 드루앵 부르고뉴 피노 누아=Joseph Drouhin Bourgogne Pinot Noir|조셉 드루앵 샤블리=Joseph Drouhin Chablis|윌리엄 페브르 샤블리=William Fevre Chablis|알베르 비쇼 부르고뉴 피노 누아=Albert Bichot Bourgogne Pinot Noir|부샤 페레 에 피스=Bouchard Pere & Fils|도멘 드 라 로마네 콩티=Domaine de la Romanee-Conti|조르주 뒤뵈프 보졸레 누보=Georges Duboeuf Beaujolais Nouveau|
+기갈 꼬뜨 뒤 론 루즈=E. Guigal Cotes du Rhone Rouge|기갈 꼬뜨 뒤 론 블랑=E. Guigal Cotes du Rhone Blanc|기갈 샤토뇌프 뒤 파프=E. Guigal Chateauneuf-du-Pape|샤푸티에 벨르뤼슈=M. Chapoutier Belleruche Cotes du Rhone|샤토 드 보카스텔=Chateau de Beaucastel|
+모엣 샹동 브뤼 앵페리얼=Moet & Chandon Brut Imperial|모엣 샹동 로제 앵페리얼=Moet & Chandon Rose Imperial|모엣 샹동 네크타 앵페리얼=Moet & Chandon Nectar Imperial|뵈브 클리코 옐로우 라벨=Veuve Clicquot Yellow Label Brut|뵈브 클리코 라 그랑 담=Veuve Clicquot La Grande Dame|돔 페리뇽=Dom Perignon|크룩 그랑 퀴베=Krug Grande Cuvee|볼랭저 스페셜 퀴베=Bollinger Special Cuvee|테탱저 브뤼 레제르브=Taittinger Brut Reserve|떼땅져=Taittinger Brut Reserve|루이 로드레 크리스탈=Louis Roederer Cristal|루이 로드레 콜렉션=Louis Roederer Collection|페리에 주에 그랑 브뤼=Perrier-Jouet Grand Brut|페리에 주에 벨 에포크=Perrier-Jouet Belle Epoque|로랑 페리에 퀴베 로제=Laurent-Perrier Cuvee Rose|파이퍼 하이직 퀴베 브뤼=Piper-Heidsieck Cuvee Brut|아르망 드 브리냑=Armand de Brignac|니콜라 푀이야트=Nicolas Feuillatte|샤를 하이직=Charles Heidsieck|폴 로저=Pol Roger|살롱=Salon|
+트림바크 리슬링=Trimbach Riesling|트림바크 게뷔르츠트라미너=Trimbach Gewurztraminer|샤토 미라발 로제=Chateau Miraval Rose|위스퍼링 엔젤 로제=Chateau d'Esclans Whispering Angel Rose|
+사시카이아=Tenuta San Guido Sassicaia|귀달베르토=Tenuta San Guido Guidalberto|레 디페제=Tenuta San Guido Le Difese|티냐넬로=Antinori Tignanello|솔라이아=Antinori Solaia|빌라 안티노리 로쏘=Antinori Villa Antinori Rosso|안티노리 페폴리 키안티 클라시코=Antinori Peppoli Chianti Classico|오르넬라이아=Ornellaia|레 세레 누오베=Le Serre Nuove dell'Ornellaia|마세토=Masseto|루피노 키안티=Ruffino Chianti|루피노 리제르바 두칼레=Ruffino Riserva Ducale Chianti Classico|반피 브루넬로 디 몬탈치노=Castello Banfi Brunello di Montalcino|반피 로쏘 디 몬탈치노=Castello Banfi Rosso di Montalcino|비온디 산티 브루넬로 디 몬탈치노=Biondi-Santi Brunello di Montalcino|가야 바르바레스코=Gaja Barbaresco|폰타나프레다 바롤로=Fontanafredda Barolo|마르케시 디 바롤로 바롤로=Marchesi di Barolo Barolo|프로두토리 델 바르바레스코=Produttori del Barbaresco|비에티 바롤로 카스틸리오네=Vietti Barolo Castiglione|토마시 아마로네=Tommasi Amarone della Valpolicella|마지 코스타세라 아마로네=Masi Costasera Amarone|마지 캄포피오린=Masi Campofiorin|세산타니 프리미티보=San Marzano Sessantanni Primitivo di Manduria|간치아 모스카토 다스티=Gancia Moscato d'Asti|바이라 모스카토 다스티=G.D. Vajra Moscato d'Asti|사라코 모스카토 다스티=Saracco Moscato d'Asti|미켈레 키아를로 니볼레 모스카토 다스티=Michele Chiarlo Nivole Moscato d'Asti|반피 로사 레갈레=Banfi Rosa Regale|라 마르카 프로세코=La Marca Prosecco|마르티니 아스티=Martini Asti|마르티니 프로세코=Martini Prosecco|산타 마르게리타 피노 그리지오=Santa Margherita Pinot Grigio|프레스코발디 니포차노 리제르바=Frescobaldi Nipozzano Riserva Chianti Rufina|빌라 엠 로쏘=Gianni Gagliardo Villa M Rosso|빌라 엠 비앙코=Gianni Gagliardo Villa M Bianco|
+마르케스 데 리스칼 레세르바=Marques de Riscal Reserva|캄포 비에호 템프라니요=Campo Viejo Tempranillo|캄포 비에호 레세르바=Campo Viejo Reserva|토레스 상그레 데 토로=Torres Sangre de Toro|토레스 그란 코로나스=Torres Gran Coronas|베가 시실리아 우니코=Vega Sicilia Unico|핀구스=Dominio de Pingus|프레시넷 코르동 네그로=Freixenet Cordon Negro Brut|코도르니우=Codorniu|무가 레세르바=Muga Reserva|라 리오하 알타 904=La Rioja Alta Gran Reserva 904|엘 코토 크리안사=El Coto Crianza|
+테일러 포트=Taylor's Port|그라함 포트=Graham's Port|샌드맨 포트=Sandeman Port|닥터 루젠 닥터 엘 리슬링=Dr. Loosen Dr. L Riesling|블루 넌=Blue Nun|슐로스 요하니스베르그=Schloss Johannisberg Riesling`;
+const koNorm = s => { let o = '';
+  for(const ch of String(s || '')){
+    const c = ch.charCodeAt(0) - 0xAC00;
+    if(c < 0 || c > 11171){ if(!/[\s·・,.'’"()\-&]/.test(ch)) o += ch.toLowerCase(); continue; }
+    let i = Math.floor(c / 588), v = Math.floor((c % 588) / 28), f = c % 28;
+    i = {1:15, 4:16, 8:17, 10:9, 13:12}[i] ?? i;                 /* ㄲㄸㅃㅆㅉ → ㅋㅌㅍㅅㅈ */
+    v = {1:5, 3:5, 7:5, 10:15, 11:15}[v] ?? v;                   /* ㅐㅒㅖ→ㅔ, ㅙㅚ→ㅞ */
+    if(v === 6 && (i === 12 || i === 14)) v = 4;                  /* 져→저, 쳐→처 */
+    f = {2:1, 20:19}[f] ?? f;                                     /* ㄲ→ㄱ, ㅆ→ㅅ 받침 */
+    o += String.fromCharCode(0xAC00 + i * 588 + v * 28 + f);
+  }
+  return o; };
+const WINE_NAMES = WINE_NAMES_RAW.replace(/\n/g, '').split('|').map(p => { const [k, e] = p.split('='); return {ko:k.trim(), en:(e || '').trim(), key:koNorm(k)}; }).filter(x => x.ko && x.en);
+
+const KO_EN = (() => { const m = new Map(); (KO_EN_WORDS + '|' + KO_EN_RAW).replace(/\n/g, '').split('|').forEach(p => { const [k, v] = p.split('='); if(k) m.set(koNorm(k), v ?? ''); }); return m; })();
 const KO_EN_MAX = Math.max(...[...KO_EN.keys()].map(k => k.length));
 function roman(word){
   const I = ['g','k','n','d','t','r','m','b','p','s','s','','j','j','ch','k','t','p','h'];
@@ -778,7 +815,7 @@ function roman(word){
     if(c < 0 || c > 11171){ out += ch; prevF = -1; continue; }
     const i = Math.floor(c / 588), v = Math.floor((c % 588) / 28), f = c % 28;
     let ini = I[i];
-    if(i === 5 && prevF === 8) ini = 'l';          /* ㄹㄹ → l (클라 → kla) */
+    if(i === 5 && (prevF === 8 || prevF === -1)) ini = 'l';   /* ㄹㄹ → l (클라 → kla), 첫 글자 ㄹ → l (롱 → long) */
     let vow = V[v];
     if(v === 18 && i === 11) vow = 'eu';          /* 으 */
     out += ini + vow + F[f]; prevF = f;
@@ -787,21 +824,23 @@ function roman(word){
 }
 const cap = w => w ? w[0].toUpperCase() + w.slice(1) : w;
 function dictEn(text){
-  const toks = String(text || '').trim().split(/\s+/).filter(Boolean);
+  const full = koNorm(text);
+  const hit = WINE_NAMES.filter(x => full.startsWith(x.key)).sort((a, b) => b.key.length - a.key.length)[0];
+  if(hit){ const rest = full.slice(hit.key.length); const r = rest ? dictEn(rest) : {text:'', guessed:false}; return {text:(hit.en + ' ' + r.text).trim(), guessed:r.guessed}; }
+  const toks = String(text || '').trim().split(/\s+/).map(koNorm).filter(Boolean);
   const out = []; let guessed = false;
+  /* 한 덩어리를 사전 단어로 빈틈없이 나눌 수 있을 때만 사전을 쓰고, 아니면 통째로 발음대로 바꿈 (오리지널 → Orijinol, 리지=Ridge로 쪼개지 않음) */
   const piece = t => {
-    let k = 0; const res = [];
-    while(k < t.length){
-      if(!/[가-힣]/.test(t[k])){ let j = k; while(j < t.length && !/[가-힣]/.test(t[j])) j++; res.push(t.slice(k, j)); k = j; continue; }
-      let hit = null;
-      for(let L = Math.min(KO_EN_MAX, t.length - k); L >= 2; L--){ const sub = t.slice(k, k + L); if(KO_EN.has(sub)){ hit = [sub, KO_EN.get(sub)]; break; } }
-      if(!hit && KO_EN.has(t[k]) && t.length === 1) hit = [t[k], KO_EN.get(t[k])];
-      if(hit){ if(hit[1]) res.push(hit[1]); k += hit[0].length; continue; }
-      let j = k + 1;
-      while(j < t.length && /[가-힣]/.test(t[j])){ let found = false; for(let L = Math.min(KO_EN_MAX, t.length - j); L >= 2; L--) if(KO_EN.has(t.slice(j, j + L))){ found = true; break; } if(found) break; j++; }
-      res.push(cap(roman(t.slice(k, j)))); guessed = true; k = j;
+    const n = t.length, best = Array(n + 1).fill(null); best[0] = [];
+    for(let k = 0; k < n; k++){
+      if(!best[k]) continue;
+      if(!/[가-힣]/.test(t[k])){ let j = k; while(j < n && !/[가-힣]/.test(t[j])) j++; const c = [...best[k], t.slice(k, j)]; if(!best[j] || c.length < best[j].length) best[j] = c; continue; }
+      for(let L = 1; L <= Math.min(KO_EN_MAX, n - k); L++){ const sub = t.slice(k, k + L); if(!KO_EN.has(sub)) continue;
+        const c = [...best[k], KO_EN.get(sub)]; if(!best[k + L] || c.length < best[k + L].length) best[k + L] = c; }
     }
-    return res;
+    if(best[n]) return best[n].filter(Boolean);
+    guessed = true;
+    return t.split(/(\d+)/).filter(Boolean).map(x => /\d/.test(x) ? x : cap(roman(x)));
   };
   for(let i = 0; i < toks.length;){
     let done = false;
@@ -877,8 +916,10 @@ function viewStash(){
   <div class="sec"><h2>안 마셔본 와인 찾기</h2></div>
   <div class="card">
     <input id="st-q" value="${esc(stashUI.q)}" placeholder="와인 이름 (한글이나 영문)" autocomplete="off" style="width:100%;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:10px 12px;min-height:44px">
-    <div class="note" id="st-en" style="min-height:20px">${stashUI.q ? '' : '한글로 써도 영문으로 바꿔서 검색해요.'}</div>
-    <label class="f" id="st-enw" style="display:none;margin:6px 0 0"><span>영문 검색어 · 틀리면 직접 고쳐주세요</span><input id="st-en-i" autocomplete="off" autocapitalize="words"></label>
+    <div class="note" id="st-en" style="min-height:20px">${stashUI.q ? '' : '한글로 써도 영문으로 바꿔서 검색해요. 이름 일부만 써도 아래에 추천이 떠요.'}</div>
+    <div class="sug" id="st-sug" role="listbox" aria-label="추천 와인"></div>
+    <div id="st-enw" style="display:none;margin-top:6px"><label class="f" style="margin:0"><span>영문 검색어 · 틀리면 직접 고쳐주세요</span><input id="st-en-i" autocomplete="off" autocapitalize="words"></label>
+      <a class="small" id="st-nvc" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px">네이버에서 영문 이름 확인하기 ↗</a></div>
     <a class="btn block sbtn" id="st-ws" style="margin-top:8px" target="_blank" rel="noopener">Wine-Searcher에서 검색 ↗</a>
     <div class="two" style="margin-top:8px">
       <a class="btn soft sm sbtn" id="st-nv" target="_blank" rel="noopener">네이버 최저가 검색 ↗</a>
@@ -886,9 +927,22 @@ function viewStash(){
     <p class="note" style="margin-top:8px">Vivino는 구글에서 그 와인의 Vivino 페이지를 찾아 보여줘요.</p>
   </div>`;
 }
+function suggestWines(raw){
+  const q = koNorm(raw), ql = raw.trim().toLowerCase(); if(!q) return [];
+  const pool = [...wines().filter(w => w.nameEn).map(w => ({ko:w.name, en:w.nameEn})), ...KB_WINES.map(w => ({ko:w.n, en:w.en})), ...WINE_NAMES];
+  const seen = new Set(), out = [];
+  for(const x of pool){
+    const k = koNorm(x.ko), e = x.en.toLowerCase();
+    const at = k.indexOf(q), ae = e.indexOf(ql);
+    if(at < 0 && ae < 0) continue;
+    const id = e.replace(/[^a-z0-9]/g, ''); if(seen.has(id)) continue; seen.add(id);
+    out.push({...x, score:(at === 0 || ae === 0 ? 0 : 1) * 1000 + k.length});
+  }
+  return out.sort((a, b) => a.score - b.score).slice(0, 6);
+}
 function wireStashSearch(){
   const i = $('#st-q'); if(!i) return;
-  const ws = $('#st-ws'), nv = $('#st-nv'), vv = $('#st-vv'), info = $('#st-en'), enw = $('#st-enw'), eni = $('#st-en-i');
+  const ws = $('#st-ws'), nv = $('#st-nv'), vv = $('#st-vv'), info = $('#st-en'), enw = $('#st-enw'), eni = $('#st-en-i'), sug = $('#st-sug'), nvc = $('#st-nvc');
   let timer = null, seq = 0, edited = false;
   const apply = () => {
     const raw = i.value.trim(), on = !!raw;
@@ -896,24 +950,32 @@ function wireStashSearch(){
     if(!on){ [ws, nv, vv].forEach(a => a.removeAttribute('href')); return; }
     const q = hasKo(raw) ? (eni.value.trim() || raw) : raw;
     ws.href = searchUrl.ws(q); vv.href = searchUrl.vivino(q); nv.href = searchUrl.naver(raw);
+    nvc.href = 'https://search.naver.com/search.naver?query=' + encodeURIComponent(raw + ' 와인');
+  };
+  const showSug = raw => {
+    const list = suggestWines(raw).filter(x => koNorm(x.ko) !== koNorm(raw));
+    sug.innerHTML = list.map((x, n) => `<button type="button" role="option" data-n="${n}"><b>${esc(x.ko)}</b><small>${esc(x.en)}</small></button>`).join('');
+    sug.querySelectorAll('button').forEach(btn => btn.onclick = () => { const x = list[+btn.dataset.n];
+      i.value = x.ko; stashUI.q = x.ko; clearTimeout(timer); seq++; enw.style.display = ''; eni.value = x.en; edited = true; info.textContent = ''; sug.innerHTML = ''; apply(); });
   };
   const update = () => {
     const raw = i.value.trim(); stashUI.q = raw; const my = ++seq; clearTimeout(timer); edited = false;
-    if(!raw){ enw.style.display = 'none'; info.textContent = '한글로 써도 영문으로 바꿔서 검색해요.'; apply(); return; }
+    showSug(raw);
+    if(!raw){ enw.style.display = 'none'; info.textContent = '한글로 써도 영문으로 바꿔서 검색해요. 이름 일부만 써도 아래에 추천이 떠요.'; apply(); return; }
     if(!hasKo(raw)){ enw.style.display = 'none'; info.textContent = ''; apply(); return; }
     enw.style.display = '';
     const c = enCached(raw);
     if(c){ eni.value = c; info.textContent = ''; apply(); return; }
     const g = dictEn(raw); eni.value = g.text; apply();
-    if(!SAMPLE){ info.textContent = g.guessed ? '사전에 없는 단어는 발음대로 바꿨어요. 정확하지 않으면 아래 영문을 고쳐주세요.' : ''; return; }
+    if(!SAMPLE){ info.textContent = g.guessed ? '모르는 단어가 있어 발음대로 바꿨어요. 아래 추천에서 고르거나, 네이버에서 영문 이름을 확인해 고쳐주세요.' : ''; return; }
     info.innerHTML = '<span class="spin"></span>AI로 더 정확한 영문 이름을 찾는 중…';
     timer = setTimeout(async () => { const en = await ensureEn(raw); if(my !== seq) return;
       info.textContent = ''; if(en && !edited){ eni.value = en; apply(); } }, 700);
   };
-  i.oninput = update; i.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); i.blur(); } };
+  i.oninput = update; i.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); sug.innerHTML = ''; i.blur(); } };
   eni.oninput = () => { edited = true; apply(); };
   eni.onchange = () => { const raw = i.value.trim(), v = eni.value.trim(); if(raw && v && hasKo(raw)) saveEn(raw, v); };
-  update();
+  update(); sug.innerHTML = '';
 }
 
 function lightbox(src){ const lb = $('#lb'); lb.innerHTML = `<img src="${src}" alt="라벨 크게 보기"><span>탭하면 닫혀요</span>`; lb.classList.add('on'); }
@@ -1034,7 +1096,7 @@ function viewLearn(){
   <div class="card"><ul class="wl">${ws.length ? ws.map(w => { const did = names.some(n => n && (n.includes(norm(w.n).slice(0, 6)) || norm(w.n).includes(n))); return `<li><div><div style="font-weight:600">${esc(w.n)}</div><div class="muted small">${w.c}${did ? ' · <span class="done">✓ 마셔봄</span>' : ''}</div><div class="links" style="margin-top:6px"><a href="${searchUrl.vivino(w.en)}" target="_blank" rel="noopener">Vivino</a><a href="https://www.google.com/search?q=${encodeURIComponent(w.n + ' 와인 평점')}" target="_blank" rel="noopener">리뷰 검색</a></div></div><div class="p">${BANDS.find(b => b.id === w.b).n}</div></li>`; }).join('') : '<li class="muted">이 가격대엔 대표 와인을 아직 정리하지 않았어요. 아래 AI에게 추천받아 보세요.</li>'}</ul>
     <p class="note">가격대는 국내 소매가 기준의 대략적인 구분이에요. 매장·빈티지·시기에 따라 달라요.</p></div>
 
-${SAMPLE ? '' : ''}
+
 
   <div class="sec"><h2>믿을 만한 와인 정보 소스</h2></div>
   <div class="card">${SOURCES.map(s => `<a class="src" href="${s.u}" target="_blank" rel="noopener"><span class="n">${esc(s.n)} ↗</span><span class="d">${esc(s.d)}</span><span class="sc">${esc(s.sc)}</span></a>`).join('')}</div>
@@ -1114,7 +1176,7 @@ function viewMore(){
   <div class="card"><div class="maker"><div class="avatar">궁</div><div style="flex:1"><div style="font-weight:700">궁뎅이형</div><div class="muted small">“와알못도 즐겁게 홀짝일 수 있도록 만들었어요.”</div></div></div>
     <div class="mlinks"><button class="btn soft sm" data-act="maker-insta">인스타그램</button><button class="btn soft sm" data-act="maker-mail">문의</button></div></div>
   <div class="list-h">앱 정보</div><div class="card small">
-    <div class="row between"><span>와알못의 홀짝 시음기</span><span class="muted">v1.0 · 웹앱</span></div>
+    <div class="row between"><span>와알못의 홀짝 시음기</span><span class="muted">v1.1 · 웹앱</span></div>
     <p class="note" style="margin:8px 0 0">와인 공부 탭의 정보 소스는 와인21, Vivino, Wine Folly, Wine Spectator, Wine Advocate, Jancis Robinson, Decanter 등 널리 인용되는 매체를 골라 정리했어요.</p></div>`;
 }
 function nickSheet(){
