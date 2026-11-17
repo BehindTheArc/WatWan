@@ -147,7 +147,11 @@ label.f textarea{min-height:84px;resize:vertical}
 .hero{display:grid;grid-template-columns:auto minmax(0,1fr);gap:18px;align-items:center;margin-bottom:16px}
 .hero svg.b{width:88px;height:auto;filter:drop-shadow(0 6px 8px rgba(40,10,20,.25))}
 .hero .t{font-family:var(--serif);font-size:22px;font-weight:700;line-height:1.25}
-.acts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px}
+.acts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px}.acts.four{grid-template-columns:repeat(4,minmax(0,1fr))}.acts .btn{padding:10px 6px;font-size:14px}
+@media(max-width:400px){.acts.four{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.glass{display:flex;gap:8px;overflow-x:auto;margin-top:8px}.glass button{flex:none;border:none;padding:0;background:none;text-align:center}
+.glass img{display:block;width:96px;height:120px;object-fit:cover;border-radius:10px;box-shadow:0 3px 8px rgba(40,10,20,.25)}.glass small{display:block;font-size:12px;color:var(--muted);margin-top:3px}
+.opened{display:inline-block;font-size:12px;font-weight:700;color:#fff;background:var(--wine);border-radius:99px;padding:1px 8px;margin-top:3px}
 .tags{display:flex;flex-wrap:wrap;gap:6px}
 .tag{font-size:12.5px;background:var(--soft);border-radius:99px;padding:3px 10px}
 .radar{display:block;width:100%;max-width:320px;margin:4px auto 0}
@@ -291,7 +295,7 @@ function bottle(w = {}, cls = ''){
   return `<svg class="${cls}" viewBox="0 0 60 200" aria-hidden="true">
     <defs><clipPath id="${cid}"><path d="${BOTTLE_PATH}" transform="translate(30 0) scale(.94 1) translate(-30 0)"/></clipPath></defs>
     <path d="${BOTTLE_PATH}" fill="${t.glass}" stroke="rgba(0,0,0,.35)" stroke-width=".6"/>
-    <rect x="22.5" y="3" width="15" height="34" rx="2" fill="${foil}"/>
+    ${w.openedAt ? `<rect x="22.5" y="16" width="15" height="21" rx="1.5" fill="${foil}"/><rect x="25" y="1" width="10" height="16" rx="1.5" fill="#C9A06A"/><line x1="26.5" y1="4" x2="33.5" y2="4" stroke="#8A6438" stroke-width=".6"/><line x1="26.5" y1="8" x2="33.5" y2="8" stroke="#8A6438" stroke-width=".6"/>` : `<rect x="22.5" y="3" width="15" height="34" rx="2" fill="${foil}"/>`}
     ${neck}
     ${lab}
     <rect x="${L.x}" y="${L.y}" width="${L.w}" height="${L.h}" fill="none" stroke="rgba(0,0,0,.18)" stroke-width=".6"/>
@@ -366,7 +370,34 @@ const tastings = () => Object.values(S().tastings).sort((a, b) => (b.date || '')
 
 /* ================= capabilities ================= */
 let SAMPLE = null, DL = null;
+const BUILD_GH = true;
+const GKEY = 'wine.gemini';
+const gemKey = () => { try{ return localStorage.getItem(GKEY) || ''; }catch(e){ return ''; } };
+const GEM_MODELS = ['gemini-flash-latest', 'gemini-3.5-flash-lite', 'gemini-2.5-flash'];
+async function blobToB64(b){ return new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.onerror = rej; fr.readAsDataURL(b); }); }
+async function geminiCall(key, prompt, opts = {}){
+  const text = typeof prompt === 'string' ? prompt : prompt.map(m => m.content).join('\n\n');
+  const parts = [{text}];
+  for(const img of (opts.images || [])) parts.push({inline_data:{mime_type:img.type || 'image/jpeg', data:await blobToB64(img)}});
+  let last = null;
+  for(const model of GEM_MODELS){
+    let r;
+    try{ r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {method:'POST', headers:{'Content-Type':'application/json', 'x-goog-api-key':key}, body:JSON.stringify({contents:[{role:'user', parts}]})}); }
+    catch(e){ throw {code:'network'}; }
+    if(r.status === 404){ last = {code:'model'}; continue; }
+    const d = await r.json().catch(() => ({}));
+    if(r.status === 429) throw {code:'rate_limited'};
+    if(r.status === 400 || r.status === 401 || r.status === 403) throw {code:'bad_key', message:d.error && d.error.message};
+    if(!r.ok) throw {code:'error', message:d.error && d.error.message};
+    const out = ((d.candidates || [])[0]?.content?.parts || []).map(p => p.text || '').join('');
+    if(opts.onText) opts.onText({text:out, delta:out});
+    return {text:out};
+  }
+  throw last || {code:'error'};
+}
+function useGemini(){ const k = gemKey(); if(BUILD_GH && k){ SAMPLE = (p, o) => geminiCall(k, p, o); } else if(BUILD_GH){ SAMPLE = null; } }
 async function caps(){
+  if(BUILD_GH){ useGemini(); render(); return; }
   if(!window.claude || !window.claude.use) return;
   try{ SAMPLE = await claude.use('sample'); }catch(e){}
   try{ DL = await claude.use('downloads'); }catch(e){}
@@ -377,7 +408,7 @@ async function ask(prompt, opts = {}){
   const r = await SAMPLE(prompt, opts);
   return (r && r.text) || '';
 }
-const aiErr = e => e && e.code === 'not_granted' ? 'AI 사용이 허용되지 않았어요.' : e && e.code === 'rate_limited' ? '잠시 후 다시 시도해주세요.' : 'AI 답변을 받지 못했어요.';
+const aiErr = e => e && e.code === 'not_granted' ? 'AI 사용이 허용되지 않았어요.' : e && e.code === 'rate_limited' ? (BUILD_GH ? 'Gemini 무료 사용량을 다 썼어요. 잠시 뒤나 내일 다시 해주세요.' : '잠시 후 다시 시도해주세요.') : e && e.code === 'bad_key' ? 'Gemini 키가 맞지 않아요. 더보기에서 키를 확인해주세요.' : e && e.code === 'network' ? '인터넷 연결을 확인해주세요.' : 'AI 답변을 받지 못했어요.';
 
 /* ================= knowledge base (Tab 3) ================= */
 const GRAPES = [
@@ -562,7 +593,7 @@ function viewCellar(){
      <button class="btn soft block" style="margin-top:8px" data-act="demo">예시 와인 3병으로 둘러보기</button></div>`}`;
 }
 function fridge(list){
-  const cell = w => w ? `<button class="cell" data-act="wine" data-id="${w.id}" aria-label="${esc(w.name)}">${(+w.qty || 1) > 1 ? `<span class="qty">×${w.qty}</span>` : ''}<span class="bt">${bottle(w)}</span><span class="plank"></span><span class="tg"><b>${esc(w.name)}</b><small>${w.vintage ? esc(w.vintage) + ' · ' : ''}${heldText(w.buyDate)}</small></span></button>`
+  const cell = w => w ? `<button class="cell" data-act="wine" data-id="${w.id}" aria-label="${esc(w.name)}">${(+w.qty || 1) > 1 ? `<span class="qty">×${w.qty}</span>` : ''}<span class="bt">${bottle(w)}</span><span class="plank"></span><span class="tg"><b>${esc(w.name)}</b><small>${w.openedAt ? '🍾 오픈 ' + (period(w.openedAt) === '오늘' ? '오늘' : period(w.openedAt) + '째') : (w.vintage ? esc(w.vintage) + ' · ' : '') + heldText(w.buyDate)}</small></span></button>`
     : `<div class="cell" aria-hidden="true"><span class="bt"></span><span class="plank"></span></div>`;
   const rows = []; for(let i = 0; i < Math.max(list.length, 1); i += 3) rows.push([0, 1, 2].map(j => list[i + j]));
   const btl = list.reduce((s, w) => s + (+w.qty || 1), 0);
@@ -588,13 +619,33 @@ function wineDetail(w){
       ${w.memo ? `<dt>메모</dt><dd>${esc(w.memo)}</dd>` : ''}
     </dl>
     ${ts.length ? `<div class="list-h">이 와인의 시음 노트</div>${ts.map(t => `<button class="item" data-act="tasting" data-id="${t.id}" style="grid-template-columns:minmax(0,1fr)"><div>${stars(t.rating)}${rebuyBadge(t.rebuy)}<div class="s">${esc(t.date)}${t.oneLine ? ' · ' + esc(t.oneLine) : ''}</div></div></button>`).join('')}` : ''}
-    <div class="acts">
+    ${w.openedAt ? `<div class="card"><div class="row between"><b>🍾 코르크 오픈</b><span class="muted small">${esc(w.openedAt)} · ${period(w.openedAt) === '오늘' ? '오늘 열었어요' : period(w.openedAt) + '째'}</span></div>
+      ${(w.glass || []).length ? `<div class="glass">${w.glass.map(g => `<button data-src="${g.photo}" data-act="glass-view"><img src="${g.photo}" alt="잔에 따른 와인"><small>${esc(g.date.slice(5).replace('-', '.'))}</small></button>`).join('')}</div>` : '<p class="small muted" style="margin:6px 0 0">아직 잔 사진이 없어요.</p>'}
+      <p class="note" style="margin-top:8px">다 마시면 ‘마셨어요’로 시음 노트를 남겨주세요. 잔 사진도 노트에 함께 옮겨져요.</p></div>` : ''}
+    <div class="acts ${held ? 'four' : ''}">
+      ${held ? `<button class="btn ${w.openedAt ? 'soft' : 'ghost'}" data-act="cork" data-id="${w.id}">${w.openedAt ? '📷 잔 사진' : '🍾 코르크 오픈'}</button>` : ''}
       ${held ? `<button class="btn" data-act="drink" data-id="${w.id}">🍷 마셨어요</button>` : `<button class="btn" data-act="restock" data-id="${w.id}">다시 들임</button>`}
       <button class="btn soft" data-act="edit-wine" data-id="${w.id}">수정</button>
       <button class="btn soft" data-act="del-wine" data-id="${w.id}">삭제</button>
     </div>`);
 }
 
+function pickCamera(){
+  return new Promise(res => { const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.setAttribute('capture', 'environment'); i.onchange = () => res(i.files[0] || null); i.click(); });
+}
+async function corkOpen(w){
+  const file = await pickCamera(); if(!file){ if(!w.openedAt){ Store.put('wines', {...w, openedAt:today(), glass:[]}); render(); wineDetail(S().wines[w.id]); toast('코르크를 열었어요 🍾'); } return; }
+  try{
+    const img = await loadImg(file); const s = Math.min(1, 900 / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    const photo = c.toDataURL('image/jpeg', .76);
+    const cur = S().wines[w.id] || w;
+    const glass = [...(cur.glass || []), {date:today(), photo}].slice(-4);
+    Store.put('wines', {...cur, openedAt:cur.openedAt || today(), glass});
+    render(); wineDetail(S().wines[w.id]); toast(cur.openedAt ? '잔 사진을 추가했어요' : '코르크를 열었어요 🍾');
+  }catch(e){ toast('사진을 열지 못했어요'); }
+}
 function dataUrlToBlob(u){ const [h, b] = u.split(','); const bin = atob(b); const a = new Uint8Array(bin.length); for(let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return new Blob([a], {type:(h.match(/:(.*?);/) || [])[1] || 'image/jpeg'}); }
 function wineForm(w = {}, srcFile = null){
   const isNew = !w.id; let photo = w.photo || '', neckPhoto = w.neckPhoto || ''; let type = w.type || 'red';
@@ -603,7 +654,7 @@ function wineForm(w = {}, srcFile = null){
       <div style="font-weight:600">라벨 사진으로 병 만들기</div><div class="note" style="margin:0 0 8px">병 전체가 나오게 <b>세로로</b> 찍으면, 같은 사진에서 본 라벨과 병목 라벨을 차례로 맞춰 붙여요.</div>
       <div class="row wrap"><button type="button" class="btn sm" id="wf-ph">📷 ${photo ? '사진 바꾸기' : '사진 찍기·고르기'}</button>${photo ? '<button type="button" class="btn sm soft" id="wf-rm">사진 빼기</button>' : ''}</div>
       ${photo ? `<button type="button" class="btn sm ghost" id="wf-aibtn" style="margin-top:8px;width:100%">✨ AI로 라벨 읽어 자동 입력</button>` : ''}
-      <div class="note" id="wf-ai">${!SAMPLE ? '' : photo ? '이름·국가·지역·품종·빈티지·종류를 사진에서 읽어 채워드려요.' : '사진을 고르면 AI가 라벨을 읽어 자동으로 채워드려요.'}</div></div></div>
+      <div class="note" id="wf-ai">${!SAMPLE ? '더보기에서 Gemini 키를 연결하면 AI가 라벨을 읽어 채워줘요.' : photo ? '이름·국가·지역·품종·빈티지·종류를 사진에서 읽어 채워드려요.' : '사진을 고르면 AI가 라벨을 읽어 자동으로 채워드려요.'}</div></div></div>
     <form id="wf">
       <div class="seg" id="wf-type">${TYPES.slice(0, 5).map(t => `<button type="button" data-v="${t.id}" class="${type === t.id ? 'on' : ''}">${t.name}</button>`).join('')}</div>
       <label class="f"><span>와인 이름 *</span><input name="name" required value="${esc(w.name)}" placeholder="예: 몬테스 알파 카베르네 소비뇽"></label>
@@ -724,9 +775,11 @@ function tastingForm(t = {}, wine = null){
         if(free){ const nm = p.querySelector('#tf-name').value.trim(); if(!nm){ toast('와인 이름을 적어주세요'); return; }
           wineSnap = {name:nm, grape:p.querySelector('#tf-grape').value.trim(), price:p.querySelector('#tf-price').value.replace(/[^\d]/g, ''), type:'red'}; }
         const item = {id: t.id || uid(), wineId: w.id || null, wine: wineSnap || (w.id ? {name:w.name, vintage:w.vintage, grape:w.grape, country:w.country, price:w.price, type:w.type} : t.wine),
-          date:d.date, rating, rebuy, traits, texture, aromas, oneLine:d.oneLine, food:d.food, with:d.with, memo:d.memo};
+          date:d.date, rating, rebuy, traits, texture, aromas, oneLine:d.oneLine, food:d.food, with:d.with, memo:d.memo, ...(t.glass ? {glass:t.glass, openedAt:t.openedAt} : {})};
         Store.put('tastings', item);
-        if(isNew && w.id && S().wines[w.id]){ const ww = {...S().wines[w.id]}; ww.qty = Math.max(0, (+ww.qty || 1) - 1); if(ww.qty === 0) ww.finishDate = d.date; Store.put('wines', ww); }
+        if(isNew && w.id && S().wines[w.id]){ const ww = {...S().wines[w.id]}; ww.qty = Math.max(0, (+ww.qty || 1) - 1); if(ww.qty === 0) ww.finishDate = d.date;
+          if(ww.openedAt){ item.openedAt = ww.openedAt; item.glass = ww.glass || []; Store.put('tastings', item); delete ww.openedAt; delete ww.glass; }
+          Store.put('wines', ww); }
         closeSheet(); location.hash = 'notes'; render(); toast('기록했어요. 건배! 🥂');
       };
   }});
@@ -747,6 +800,7 @@ function tastingDetail(t){
   openSheet(`<div class="hero">${bottle(w, 'b')}<div><div class="muted small">${esc(t.date)} 시음</div><div class="t">${esc(w.name || '')}</div>
       <div><span style="font-size:20px">${stars(t.rating)}</span></div><div style="margin-top:4px">${rebuyBadge(t.rebuy).replace('margin-left:6px', '')}</div></div></div>
     ${t.oneLine ? `<div class="card" style="font-family:var(--serif);font-size:18px">“${esc(t.oneLine)}”</div>` : ''}
+    ${(t.glass || []).length ? `<div class="card"><b>🍾 잔 사진</b> <span class="muted small">${esc(t.openedAt || '')} 오픈</span><div class="glass">${t.glass.map(g => `<button data-src="${g.photo}" data-act="glass-view"><img src="${g.photo}" alt="잔에 따른 와인"><small>${esc(g.date.slice(5).replace('-', '.'))}</small></button>`).join('')}</div></div>` : ''}
     <div class="card">${radar(t.traits || {})}</div>
     ${(t.texture || []).length || (t.aromas || []).length ? `<div class="card">${(t.texture || []).length ? `<div class="muted small">텍스처</div><div class="tags" style="margin:4px 0 10px">${t.texture.map(x => `<span class="tag">${esc(x)}</span>`).join('')}</div>` : ''}
       ${(t.aromas || []).length ? `<div class="muted small">향</div><div class="tags" style="margin-top:4px">${t.aromas.map(x => `<span class="tag">${esc(x)}</span>`).join('')}</div>` : ''}</div>` : ''}
@@ -903,6 +957,8 @@ const labelThumb = (w, h = 92) => w.photo ? `<img class="lt" src="${w.photo}" al
 function viewStash(){
   const groups = tastedGroups();
   return `${header('와인 쟁여놓기', '매장에서 라벨 보고 바로 찾고, 시세와 비교해요')}
+  <button class="btn block" data-act="label-find" style="margin-bottom:6px">📷 라벨 찍어서 찾기</button>
+  <p class="note" style="margin:0 2px 4px">${SAMPLE ? '라벨을 찍으면 AI가 읽어서, 마셔본 와인이면 내 평가를 바로 보여줘요.' : '라벨 인식은 더보기에서 Gemini 키를 연결하면 쓸 수 있어요.'}</p>
   ${stashUI.msg ? `<div class="card small">${stashUI.busy ? '<span class="spin"></span>' : ''}${esc(stashUI.msg)}</div>` : ''}
 
   <div class="sec"><h2>마셔본 와인</h2><span class="muted small">별점 높은 순 · ${groups.length}종</span></div>
@@ -1041,7 +1097,7 @@ function stashSheet(name, opt = {}){
 }
 
 async function labelFind(){
-  if(!SAMPLE){ toast('라벨 인식은 claude.ai 안에서만 쓸 수 있어요', 3000); return; }
+  if(!SAMPLE){ toast('더보기에서 Gemini 키를 먼저 연결해주세요', 3000); return; }
   const file = await pickFile('image/*'); if(!file) return;
   stashUI.busy = true; stashUI.msg = 'AI가 라벨을 읽는 중…'; render();
   try{
@@ -1080,7 +1136,7 @@ function viewLearn(){
   return `${header('와인 공부', '내가 마신 와인부터, 아직 못 마셔본 와인까지')}
   <div class="sec" style="margin-top:4px"><h2>내가 마신 와인</h2><span class="muted small">${seen.size}종</span></div>
   ${seen.size ? `<div class="hs">${[...seen.values()].map(t => { const w = S().wines[t.wineId] || t.wine || {}; return `<button data-act="learn-wine" data-id="${t.id}">${bottle(w)}<div class="nm">${esc(w.name)}</div><div class="small">${stars(t.rating)}</div></button>`; }).join('')}</div>
-    <p class="note" style="margin-top:0">와인을 누르면 전문가 리뷰를 찾아보는 링크를 볼 수 있어요.</p>`
+    <p class="note" style="margin-top:0">와인을 누르면 전문가 리뷰를 찾아보는 링크와 AI 해설을 볼 수 있어요.</p>`
   : `<div class="card small muted">시음 노트를 쓰면 여기에 모여요. 그 와인의 평론가 점수와 해설을 바로 찾아볼 수 있어요.</div>`}
 
   <div class="sec"><h2>품종별 와인 지도</h2><span class="muted small">${GRAPES.length - notTried.length}/${GRAPES.length} 마셔봄</span></div>
@@ -1096,7 +1152,15 @@ function viewLearn(){
   <div class="card"><ul class="wl">${ws.length ? ws.map(w => { const did = names.some(n => n && (n.includes(norm(w.n).slice(0, 6)) || norm(w.n).includes(n))); return `<li><div><div style="font-weight:600">${esc(w.n)}</div><div class="muted small">${w.c}${did ? ' · <span class="done">✓ 마셔봄</span>' : ''}</div><div class="links" style="margin-top:6px"><a href="${searchUrl.vivino(w.en)}" target="_blank" rel="noopener">Vivino</a><a href="https://www.google.com/search?q=${encodeURIComponent(w.n + ' 와인 평점')}" target="_blank" rel="noopener">리뷰 검색</a></div></div><div class="p">${BANDS.find(b => b.id === w.b).n}</div></li>`; }).join('') : '<li class="muted">이 가격대엔 대표 와인을 아직 정리하지 않았어요. 아래 AI에게 추천받아 보세요.</li>'}</ul>
     <p class="note">가격대는 국내 소매가 기준의 대략적인 구분이에요. 매장·빈티지·시기에 따라 달라요.</p></div>
 
-
+  <div class="ai"><div style="font-weight:700">🤖 AI 소믈리에에게 물어보기</div>
+    <p class="muted small" style="margin:4px 0 10px">내 시음 노트의 취향을 바탕으로 답해드려요. AI 답변이라 틀릴 수 있으니 평론가 점수는 아래 사이트에서 꼭 확인하세요.</p>
+    ${SAMPLE ? `<div class="chips" style="margin-bottom:10px">
+      <button class="chip" data-act="ai-q" data-v="rec">${g.n} 중 내 취향 추천</button>
+      <button class="chip" data-act="ai-q" data-v="next">다음에 마셔볼 품종은?</button>
+      <button class="chip" data-act="ai-q" data-v="taste">내 취향 분석</button></div>
+      <form id="aiq" class="row"><input id="aiq-i" placeholder="예: 3만원대 치킨이랑 마실 와인?" value="${esc(learnUI.q)}" style="flex:1;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:10px 12px;min-height:44px"><button class="btn" ${learnUI.aiBusy ? 'disabled' : ''}>묻기</button></form>
+      <div class="out" id="ai-out">${learnUI.aiBusy && !learnUI.ai ? '<span class="spin"></span>생각하는 중…' : esc(learnUI.ai)}</div>`
+    : `<p class="small muted">더보기에서 Gemini 키를 연결하면 AI 소믈리에를 쓸 수 있어요.</p>`}</div>
 
   <div class="sec"><h2>믿을 만한 와인 정보 소스</h2></div>
   <div class="card">${SOURCES.map(s => `<a class="src" href="${s.u}" target="_blank" rel="noopener"><span class="n">${esc(s.n)} ↗</span><span class="d">${esc(s.d)}</span><span class="sc">${esc(s.sc)}</span></a>`).join('')}</div>
@@ -1117,7 +1181,8 @@ function learnWine(t){
     <div class="card"><div style="font-weight:700">전문가 리뷰·점수 찾아보기</div>
       <div class="links"><a href="${searchUrl.vivino(enGuess(w.name))}" target="_blank" rel="noopener">Vivino 별점</a><a href="${searchUrl.ws(enGuess(w.name))}" target="_blank" rel="noopener">Wine-Searcher</a><a href="https://www.wine21.com" target="_blank" rel="noopener">와인21</a><a href="https://www.google.com/search?q=${encodeURIComponent((w.name || '') + ' 와인 평론가 점수 리뷰')}" target="_blank" rel="noopener">구글 리뷰 검색</a></div>
       <p class="note">영문 이름으로 검색하면 해외 사이트에서 더 잘 찾아져요.</p></div>
-    `, { onMount(p){
+    <div class="ai"><div style="font-weight:700">🤖 AI 와인 해설</div>
+      ${SAMPLE ? `<button class="btn sm" style="margin-top:8px" id="lw-go">이 와인 해설 듣기</button><div class="out" id="lw-out"></div>` : '<p class="small muted">더보기에서 Gemini 키를 연결하면 AI 해설을 들을 수 있어요.</p>'}</div>`, { onMount(p){
     const b = p.querySelector('#lw-go'); if(!b) return;
     b.onclick = async () => { b.disabled = true; const out = p.querySelector('#lw-out'); out.innerHTML = '<span class="spin"></span>해설을 준비하는 중…';
       try{ await ask(`당신은 와인 초보자에게 설명하는 친절한 소믈리에입니다. 아래 와인에 대해 한국어로 짧게 해설하세요.
@@ -1168,6 +1233,9 @@ function viewMore(){
     <div class="li" style="cursor:default">오래 보관 알림 <span class="r"><select id="set-long">${LONG_OPTS.map(([v, n]) => `<option value="${v}" ${st.longMonths == v ? 'selected' : ''}>${n}</option>`).join('')}</select></span></div>
     <div class="li" style="cursor:default">셀러 기본 정렬 <span class="r"><select id="set-sort">${[['recent','최근 구매순'],['old','오래 보관순'],['price','가격 높은순'],['vintage','빈티지순']].map(([v, n]) => `<option value="${v}" ${st.sort === v ? 'selected' : ''}>${n}</option>`).join('')}</select></span></div></div>
   <p class="note" style="margin:6px 4px 0">고른 기간보다 오래 보관한 와인이 있으면 셀러 위쪽에 알려드려요.</p>
+  ${BUILD_GH ? `<div class="list-h">AI 기능 (Gemini)</div><div class="list">
+    <button class="li" data-act="gemini">Gemini API 키 <span class="r">${gemKey() ? '연결됨 ✓ ›' : '연결 안 됨 ›'}</span></button></div>
+    <p class="note" style="margin:6px 4px 0">키를 넣으면 라벨 찍어서 찾기, 라벨 자동 입력, AI 영문 변환·해설을 쓸 수 있어요.</p>` : ''}
   <div class="list-h">데이터</div><div class="list">
     <button class="li" data-act="backup">백업 파일 내보내기 <span class="r">.json ›</span></button>
     <button class="li" data-act="restore">백업 불러오기 <span class="r">›</span></button>
@@ -1176,8 +1244,33 @@ function viewMore(){
   <div class="card"><div class="maker"><div class="avatar">궁</div><div style="flex:1"><div style="font-weight:700">궁뎅이형</div><div class="muted small">“와알못도 즐겁게 홀짝일 수 있도록 만들었어요.”</div></div></div>
     <div class="mlinks"><button class="btn soft sm" data-act="maker-insta">인스타그램</button><button class="btn soft sm" data-act="maker-mail">문의</button></div></div>
   <div class="list-h">앱 정보</div><div class="card small">
-    <div class="row between"><span>와알못의 홀짝 시음기</span><span class="muted">v1.1 · 웹앱</span></div>
-    <p class="note" style="margin:8px 0 0">와인 공부 탭의 정보 소스는 와인21, Vivino, Wine Folly, Wine Spectator, Wine Advocate, Jancis Robinson, Decanter 등 널리 인용되는 매체를 골라 정리했어요.</p></div>`;
+    <div class="row between"><span>와알못의 홀짝 시음기</span><span class="muted">v1.2 · 웹앱</span></div>
+    <p class="note" style="margin:8px 0 0">와인 공부 탭의 정보 소스는 와인21, Vivino, Wine Folly, Wine Spectator, Wine Advocate, Jancis Robinson, Decanter 등 널리 인용되는 매체를 골라 정리했어요. AI 기능은 연결한 Gemini가 도와드려요.</p></div>`;
+}
+function geminiSheet(){
+  const has = !!gemKey();
+  openSheet(`<h2>Gemini API 키</h2>
+    <p class="small" style="margin-top:-6px">Google의 무료 AI(Gemini)를 연결하면 이 앱의 AI 기능을 쓸 수 있어요. 키는 <b>이 휴대폰 브라우저에만</b> 저장되고, 백업 파일에도 들어가지 않아요.</p>
+    <div class="card small"><b>무료 키 받는 법</b>
+      <ol style="margin:8px 0 0;padding-left:20px;line-height:1.8">
+        <li><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio 키 페이지 열기 ↗</a></li>
+        <li>Google 계정으로 로그인하고 약관에 동의</li>
+        <li><b>API 키 만들기(Create API key)</b>를 누르고 만들어진 키를 복사</li>
+        <li>아래 칸에 붙여넣고 <b>연결 확인 후 저장</b></li></ol></div>
+    <label class="f"><span>API 키</span><input id="gk-i" value="${esc(gemKey())}" placeholder="AIza로 시작하는 키" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+    <div class="note" id="gk-msg" style="min-height:20px;margin:-4px 2px 10px"></div>
+    <button class="btn block" id="gk-save">연결 확인 후 저장</button>
+    ${has ? '<button class="btn soft block" style="margin-top:8px" id="gk-del">키 지우기</button>' : ''}
+    <p class="note" style="margin-top:12px">무료 버전은 하루·분당 사용량 한도가 있고, Google이 입력한 내용(라벨 사진 등)을 서비스 개선에 쓸 수 있어요. 개인적인 정보는 넣지 마세요. Gemini API는 만 18세 이상만 쓸 수 있어요.</p>`, { onMount(p){
+    const i = p.querySelector('#gk-i'), msg = p.querySelector('#gk-msg'), sv = p.querySelector('#gk-save');
+    sv.onclick = async () => { const k = i.value.trim(); if(!k){ msg.textContent = '키를 붙여넣어 주세요.'; return; }
+      sv.disabled = true; msg.innerHTML = '<span class="spin"></span>연결 확인 중…';
+      try{ const r = await geminiCall(k, '"OK"라고만 답하세요.'); if(!r.text) throw {code:'error'};
+        try{ localStorage.setItem(GKEY, k); }catch(e){} useGemini(); closeSheet(); render(); toast('Gemini를 연결했어요 ✨'); }
+      catch(e){ msg.textContent = e.code === 'bad_key' ? '키가 맞지 않아요. 다시 복사해서 붙여넣어 주세요.' : e.code === 'rate_limited' ? '지금은 사용량 한도에 걸렸어요. 잠시 뒤 다시 해주세요.' : e.code === 'network' ? '인터넷 연결을 확인해주세요.' : '연결하지 못했어요. ' + (e.message || ''); }
+      sv.disabled = false; };
+    const del = p.querySelector('#gk-del'); if(del) del.onclick = () => { try{ localStorage.removeItem(GKEY); }catch(e){} useGemini(); closeSheet(); render(); toast('키를 지웠어요'); };
+  }});
 }
 function nickSheet(){
   openSheet(`<h2>닉네임 변경</h2><form id="nf"><label class="f"><span>닉네임</span><input name="n" maxlength="16" value="${esc(S().settings.nickname)}"></label><button class="btn block">저장</button></form>`, { onMount(p){
@@ -1247,6 +1340,8 @@ const ACT = {
   'wine': el => { const w = S().wines[el.dataset.id]; if(w) wineDetail(w); },
   'edit-wine': el => { const w = S().wines[el.dataset.id]; if(w) wineForm(w); },
   'del-wine': el => { const w = S().wines[el.dataset.id]; if(w) confirmSheet('와인 삭제', `‘${esc(w.name)}’을(를) 셀러에서 지울까요? 이 와인의 시음 노트는 그대로 남아요.`, '삭제', () => { Store.del('wines', w.id); toast('지웠어요'); }); },
+  'cork': el => { const w = S().wines[el.dataset.id]; if(w) corkOpen(w); },
+  'glass-view': el => lightbox(el.dataset.src),
   'drink': el => { const w = S().wines[el.dataset.id]; if(w) tastingForm({}, w); },
   'restock': el => { const w = S().wines[el.dataset.id]; if(w){ Store.put('wines', {...w, qty:1, finishDate:'', buyDate:today()}); closeSheet(); render(); toast('셀러에 다시 넣었어요'); } },
   'nf': el => { notesUI.f = el.dataset.v; render(); },
@@ -1263,6 +1358,7 @@ const ACT = {
   'band': el => { learnUI.band = el.dataset.v; render(); },
   'ai-q': el => aiAsk(el.dataset.v),
   'nick': () => nickSheet(),
+  'gemini': () => geminiSheet(),
   'backup': () => backup(),
   'restore': () => restore(),
   'reset': () => resetSheet(),
