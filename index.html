@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>와알못의 홀짝 시음기</title>
+<meta name="theme-color" content="#6E1E33">
+<meta name="description" content="와인 셀러, 시음 노트, 쟁여놓기까지 — 와알못을 위한 와인 기록 앱">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="홀짝 시음기">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hahmlet:wght@500;700;800&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: 다정한 개인 기록장, 와인 바의 셀러 카드처럼 차분하고 따뜻하게
+   IDEA: 와인 셀러 선반 — 병이 눕고 서 있는 랙, 라벨이 곧 기록
+   PICTURE: 라벨 사진을 입힌 와인병 일러스트가 셀러 선반에 줄지어 선다
+   COLOUR and TYPE: 클라렛 와인색 주조, 포도잎 그린 보조, 로제 핑크 포인트 / Hahmlet + IBM Plex Sans KR
+   LAYOUT: 모바일 한 컬럼, 아래 탭바 4개, 시트형 입력창 */
+:root{color-scheme:light dark;
+  --bg:light-dark(#FBF8F7,#160E11); --card:light-dark(#FFFFFF,#22161A); --ink:light-dark(#24161B,#F3E9EC);
+  --muted:light-dark(#7C6A70,#B29EA5); --line:light-dark(#EDE3E5,#3A272E); --soft:light-dark(#F4ECEE,#2C1D23);
+  --wine:light-dark(#6E1E33,#D9647F); --wine-2:light-dark(#8E2C47,#E88AA0); --wine-ink:#fff;
+  --vine:light-dark(#4D6A45,#9CC08F); --rose:light-dark(#E08A9A,#E08A9A); --gold:light-dark(#B88A2E,#E0BC6A);
+  --shelf:light-dark(#5A2A33,#3B1D25);
+  --serif:'Hahmlet',serif; --sans:'IBM Plex Sans KR',system-ui,sans-serif; --tabh:64px}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--sans);overflow-x:clip}
+button{font:inherit;color:inherit;cursor:pointer}
+input,textarea,select{font:inherit;color:inherit;font-size:16px}
+a{color:var(--wine)}
+.app{max-width:520px;margin:0 auto;min-height:100vh;padding:calc(env(safe-area-inset-top) + 14px) 18px calc(var(--tabh) + env(safe-area-inset-bottom) + 30px)}
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin:4px 0 16px}
+.top h1{font-family:var(--serif);font-weight:800;font-size:28px;line-height:1.1;margin:0;letter-spacing:-.5px}
+.top .sub{color:var(--muted);font-size:13.5px;margin-top:4px}
+.badge{font-size:11.5px;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:2px 9px;white-space:nowrap}
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:color-mix(in srgb,var(--card) 94%,transparent);backdrop-filter:blur(10px);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+.tabbar nav{max-width:520px;margin:0 auto;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));height:var(--tabh)}
+.tabbar a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;text-decoration:none;color:var(--muted);font-size:clamp(10.5px,2.9vw,12px);white-space:nowrap;letter-spacing:-.3px}
+.tabbar svg{width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tabbar a.on{color:var(--wine);font-weight:700}.tabbar a.on svg{stroke-width:2.2}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px}
+.row{display:flex;align-items:center;gap:10px}.between{justify-content:space-between}.wrap{flex-wrap:wrap}
+.muted{color:var(--muted)}.small{font-size:13px}
+.btn{border:none;background:var(--wine);color:var(--wine-ink);border-radius:13px;padding:11px 16px;font-weight:600;font-size:15px;min-height:44px}
+.btn.soft{background:var(--soft);color:var(--ink)}.btn.ghost{background:transparent;border:1px solid var(--wine);color:var(--wine)}
+.btn.warn{background:#A23B2A;color:#fff}.btn.block{width:100%}.btn.sm{padding:7px 12px;font-size:13.5px;min-height:36px;border-radius:10px}
+.btn:disabled{opacity:.45}
+.btn:focus-visible,.chip:focus-visible,a:focus-visible,.li:focus-visible{outline:2px solid var(--rose);outline-offset:2px}
+.chips{display:flex;gap:7px;flex-wrap:wrap}.chips.scroll{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.chips.scroll::-webkit-scrollbar{display:none}
+.chips.scroll .chip,.chips.scroll button{flex:none}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:99px;padding:7px 13px;font-size:13.5px;white-space:nowrap;min-height:36px}
+.chip.on{background:var(--wine);color:var(--wine-ink);border-color:var(--wine)}
+.chip .ck{color:var(--vine);font-weight:700;margin-left:3px}.chip.on .ck{color:#fff}
+.sec{margin:24px 0 10px;display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.sec h2{font-family:var(--serif);font-size:20px;margin:0}
+.note{font-size:12.5px;color:var(--muted);margin:6px 2px 0}
+.empty{text-align:center;padding:30px 14px;color:var(--muted)}
+.empty .big{font-family:var(--serif);font-size:19px;color:var(--ink);margin:10px 0 6px}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.stats div{background:var(--soft);border-radius:14px;padding:10px 6px;text-align:center}
+.stats b{display:block;font-family:var(--serif);font-size:clamp(18px,5vw,22px);white-space:nowrap}
+.stats span{font-size:12px;color:var(--muted)}
+/* cellar: wine fridge */
+.fridge{background:linear-gradient(#2c2528,#121011);border-radius:22px;padding:10px 10px 0;box-shadow:0 16px 32px rgba(30,8,15,.35),inset 0 1px 0 rgba(255,255,255,.08)}
+.fr-top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 8px 10px}
+.fr-name{font-family:var(--serif);font-weight:700;color:#eadccf;font-size:15px}
+.fr-disp{display:flex;align-items:baseline;gap:4px;background:#090707;border:1px solid #33292d;border-radius:8px;padding:3px 10px;color:#ffb46b;text-shadow:0 0 8px rgba(255,160,80,.55);font-variant-numeric:tabular-nums;font-size:13px;white-space:nowrap}
+.fr-disp b{font-size:18px}.fr-disp i{font-style:normal;font-size:12px;color:#d99a5e;margin-left:8px}
+.fr-door{position:relative;border-radius:14px;padding:7px 22px 7px 7px;background:linear-gradient(90deg,#1b1618,#2e2629);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}
+.fr-in{position:relative;border-radius:9px;overflow:hidden;padding:20px 6px 6px;box-shadow:inset 0 0 18px rgba(60,30,10,.35),inset 0 0 0 1px rgba(0,0,0,.25);
+  background:radial-gradient(120% 38% at 50% 0%,rgba(255,250,238,.95),transparent 70%),linear-gradient(90deg,rgba(90,55,25,.22),transparent 14%,transparent 86%,rgba(90,55,25,.22)),repeating-linear-gradient(90deg,rgba(120,80,40,.07) 0 1px,transparent 1px 16px),linear-gradient(#f1e6d4,#d8c3a2)}
+.fr-in::before{content:"";position:absolute;left:8%;right:8%;top:0;height:3px;border-radius:0 0 4px 4px;background:#ffdcae;box-shadow:0 0 16px 5px rgba(255,190,120,.5)}
+.fr-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:12px}
+.cell{display:flex;flex-direction:column;align-items:center;background:none;border:none;padding:0;position:relative;color:inherit}
+.cell .bt{height:150px;display:flex;align-items:flex-end;justify-content:center;position:relative;width:100%}
+.cell .bt::after{content:"";position:absolute;top:8px;bottom:6px;left:50%;width:84px;transform:translateX(-50%);background:radial-gradient(closest-side,rgba(255,255,255,.75),transparent);z-index:0}
+.cell svg{height:150px;width:auto;position:relative;z-index:1;filter:drop-shadow(0 4px 4px rgba(60,25,10,.35));transition:transform .2s}
+button.cell:hover svg,button.cell:focus-visible svg{transform:translateY(-5px)}
+.plank{display:block;align-self:stretch;height:13px;position:relative;z-index:2;background:repeating-linear-gradient(90deg,rgba(0,0,0,.18) 0 1px,transparent 1px 19px),linear-gradient(#8a5630,#5e3519 65%,#3f2210);box-shadow:0 6px 9px rgba(60,25,10,.35)}
+.fr-row .cell:first-child .plank{border-radius:3px 0 0 3px}.fr-row .cell:last-child .plank{border-radius:0 3px 3px 0}
+.tg{display:block;margin-top:9px;width:88%;background:#fffdf8;border:1px solid rgba(110,30,51,.18);color:#3a1a22;border-radius:3px 3px 7px 7px;padding:5px 6px 6px;line-height:1.3;text-align:center;box-shadow:0 3px 5px rgba(0,0,0,.45);position:relative;transform:rotate(-1.5deg)}
+.cell:nth-child(2) .tg{transform:rotate(1.5deg)}
+.tg::before{content:"";position:absolute;top:-9px;left:50%;width:1px;height:9px;background:#8a6a4a}
+.tg b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-weight:700;font-size:12.5px}
+.tg small{display:block;color:#7c6a70;font-size:12px;word-break:keep-all}
+.fr-glass{position:absolute;inset:7px 22px 7px 7px;border-radius:9px;pointer-events:none;z-index:4;background:linear-gradient(112deg,rgba(255,255,255,.10) 0 13%,transparent 22% 60%,rgba(255,255,255,.05) 65% 69%,transparent 77%)}
+.fr-handle{position:absolute;right:7px;top:20%;bottom:20%;width:7px;border-radius:5px;background:linear-gradient(90deg,#7d7a7c,#ecebec,#6f6c6e);box-shadow:0 3px 5px rgba(0,0,0,.5)}
+.fr-base{height:28px;margin:9px 6px 0;border-radius:0 0 14px 14px;background:repeating-linear-gradient(90deg,#0b0909 0 3px,#2a2326 3px 6px)}
+.qty{position:absolute;top:2px;right:12%;z-index:3;background:var(--rose);color:#2a0d15;font-size:12px;font-weight:700;border-radius:99px;min-width:24px;height:22px;display:flex;align-items:center;justify-content:center;padding:0 6px}
+@media(max-width:380px){.cell .bt,.cell svg{height:128px}.fr-door{padding-right:18px}}
+/* list items */
+.item{display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:12px 14px;margin-bottom:10px;width:100%;text-align:left}
+.item svg.b{width:34px;height:auto}
+.item .t{font-weight:700;line-height:1.3}
+.item .s{font-size:13px;color:var(--muted)}
+.stars{position:relative;display:inline-block;color:var(--line);white-space:nowrap;line-height:1.2;vertical-align:-1px}
+.stars .sf{position:absolute;left:0;top:0;overflow:hidden;color:var(--gold);white-space:nowrap}
+.rv{font-size:.85em;font-weight:700;color:var(--gold);margin-left:4px}
+.rb{display:inline-block;font-size:11.5px;font-weight:700;border-radius:7px;padding:1px 7px;margin-left:6px;vertical-align:1px;white-space:nowrap}
+.rb.r0{background:var(--soft);color:var(--muted)}.rb.r1{background:color-mix(in srgb,var(--vine) 16%,transparent);color:var(--vine)}.rb.r2{background:var(--wine);color:#fff}
+.mini{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:6px}
+.mini div{font-size:11px;color:var(--muted)}.mini i{display:block;height:5px;border-radius:9px;background:var(--soft);margin-top:2px;position:relative;overflow:hidden}
+.mini i b{position:absolute;inset:0 auto 0 0;background:var(--wine-2);border-radius:9px}
+/* centered modal */
+.scrim{position:fixed;inset:0;background:rgba(20,8,12,.5);z-index:40;opacity:0;pointer-events:none;transition:opacity .2s}
+.scrim.on{opacity:1;pointer-events:auto}
+.mw{position:fixed;inset:0;z-index:41;display:flex;align-items:center;justify-content:center;padding:max(16px,env(safe-area-inset-top)) 12px max(16px,env(safe-area-inset-bottom));pointer-events:none}
+.mw.on{pointer-events:auto}
+.sheet{position:relative;width:100%;max-width:500px;max-height:100%;overflow:auto;overscroll-behavior:contain;background:var(--bg);border-radius:22px;padding:14px 18px 22px;box-shadow:0 24px 60px rgba(20,5,10,.35);opacity:0;transform:scale(.96) translateY(10px);transition:opacity .2s,transform .2s ease}
+.mw.on .sheet{opacity:1;transform:none}
+.sheet h2{font-family:var(--serif);font-size:22px;margin:4px 48px 14px 0}
+.sheet .x{position:sticky;top:0;float:right;z-index:3;margin:0 -6px 0 0;width:40px;height:40px;border:none;background:var(--soft);border-radius:50%;font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+label.f{display:block;margin-bottom:12px}
+label.f>span{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+label.f input,label.f select,label.f textarea{width:100%;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:10px 12px;min-height:44px}
+label.f textarea{min-height:84px;resize:vertical}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:6px;margin-bottom:12px}
+.seg button{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:9px 4px;font-size:14px;min-height:44px}
+.seg button.on{background:var(--wine);color:#fff;border-color:var(--wine);font-weight:700}
+.starin{display:flex;align-items:center;gap:14px;margin:2px 0 14px}
+.starin .sw{position:relative;font-size:40px;line-height:1.1;letter-spacing:2px}
+.starin .hits{position:absolute;inset:0;display:grid;grid-template-columns:repeat(10,minmax(0,1fr))}
+.starin .hits button{border:none;background:none;padding:0;min-height:44px}
+.starin b{font-family:var(--serif);font-size:22px;color:var(--wine);min-width:60px}
+.sl{margin-bottom:12px}
+.sl .h{display:flex;justify-content:space-between;font-size:14px;font-weight:600}
+.sl .h em{font-style:normal;color:var(--wine);font-weight:700}
+.sl input{width:100%;accent-color:var(--wine);height:32px}
+.sl .ends{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-top:-4px}
+.photo{display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:center;background:var(--soft);border-radius:16px;padding:12px;margin-bottom:14px}
+.photo svg{width:56px;height:auto}
+.crop{position:relative;margin:0 auto 12px;overflow:hidden;border-radius:10px;background:#000;touch-action:none;cursor:grab}
+.crop img{position:absolute;left:0;top:0;transform-origin:0 0;user-select:none;-webkit-user-drag:none;max-width:none}
+.crop::after{content:"";position:absolute;inset:0;border:2px solid #E08A9A;border-radius:10px;pointer-events:none}
+.crop .cl{position:absolute;left:50%;transform:translate(-50%,4px);font-size:12px;font-weight:700;color:#fff;background:rgba(110,30,51,.85);border-radius:6px;padding:1px 7px;white-space:nowrap;pointer-events:none}
+.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 14px;font-size:14.5px}
+.kv dt{color:var(--muted)}.kv dd{margin:0;font-weight:500}
+.hero{display:grid;grid-template-columns:auto minmax(0,1fr);gap:18px;align-items:center;margin-bottom:16px}
+.hero svg.b{width:88px;height:auto;filter:drop-shadow(0 6px 8px rgba(40,10,20,.25))}
+.hero .t{font-family:var(--serif);font-size:22px;font-weight:700;line-height:1.25}
+.acts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.tag{font-size:12.5px;background:var(--soft);border-radius:99px;padding:3px 10px}
+.radar{display:block;width:100%;max-width:320px;margin:4px auto 0}
+/* learn */
+.grape{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 16px}
+.bar{font-size:12.5px}.bar i{display:block;height:7px;border-radius:9px;background:var(--soft);margin-top:3px;position:relative;overflow:hidden}
+.bar i b{position:absolute;inset:0 auto 0 0;background:var(--wine);border-radius:9px}
+.wl{list-style:none;margin:0;padding:0}
+.wl li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:11px 0;border-top:1px dashed var(--line)}
+.wl li:first-child{border-top:none}
+.wl .p{font-size:12.5px;color:var(--muted);white-space:nowrap;text-align:right}
+.wl .done{font-size:11.5px;color:var(--vine);font-weight:700}
+.src{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:12px 0;border-top:1px solid var(--line);text-decoration:none;color:inherit}
+.src:first-of-type{border-top:none}
+.src .n{font-weight:700}.src .d{font-size:13px;color:var(--muted);grid-column:1}
+.src .sc{grid-row:1/3;grid-column:2;font-size:12px;color:var(--wine);font-weight:700;white-space:nowrap;text-align:right}
+details{border-top:1px solid var(--line);padding:12px 0}details:first-of-type{border-top:none}
+summary{font-weight:700;cursor:pointer;list-style:none;display:flex;justify-content:space-between}
+summary::after{content:"+";color:var(--wine);font-weight:700}details[open] summary::after{content:"–"}
+details p,details ul{font-size:14.5px;margin:8px 0 0}details ul{padding-left:18px}
+.ai{background:color-mix(in srgb,var(--wine) 7%,var(--card));border:1px solid color-mix(in srgb,var(--wine) 25%,var(--line));border-radius:18px;padding:16px;margin-bottom:14px}
+.ai .out{white-space:pre-wrap;font-size:14.5px;line-height:1.65;margin-top:10px}
+.links{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.links a{font-size:13.5px;border:1px solid var(--line);border-radius:99px;padding:6px 12px;text-decoration:none;background:var(--card)}
+.hs{display:flex;gap:12px;overflow-x:auto;margin:0 -18px;padding:4px 18px 10px;scrollbar-width:none}.hs::-webkit-scrollbar{display:none}
+.hs button{flex:0 0 96px;border:none;background:none;padding:0;text-align:center}
+.hs svg{width:46px;height:auto}.hs .nm{font-size:12.5px;font-weight:600;line-height:1.3;margin-top:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* more */
+.list{background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;margin-bottom:6px}
+.li{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;padding:14px 16px;border:none;border-top:1px solid var(--line);background:none;text-align:left;min-height:52px;font-size:15px}
+.li:first-child{border-top:none}.li .r{color:var(--muted);font-size:14px;text-align:right}
+.li select{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:6px 8px}
+.list-h{font-size:13px;color:var(--muted);margin:20px 4px 8px;font-weight:600}
+.maker{display:flex;gap:14px;align-items:center}
+.avatar{width:52px;height:52px;border-radius:50%;background:var(--wine);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-weight:800;font-size:22px;flex:none}
+.mlinks{display:flex;gap:8px;margin-top:12px}.mlinks button{flex:1}
+.sbtn{display:flex;align-items:center;justify-content:center;text-decoration:none}.sbtn.off{opacity:.4;pointer-events:none}
+.lt{display:block;width:auto;max-width:76px;object-fit:cover;border-radius:6px;box-shadow:0 2px 8px rgba(40,10,20,.25);background:var(--soft)}
+.item.st{grid-template-columns:76px minmax(0,1fr);align-items:center}.item.st svg.b{width:40px;justify-self:center}
+.lbl{display:flex;gap:10px;align-items:flex-end;justify-content:center;background:var(--soft);border-radius:18px;padding:14px}
+.lbl button{border:none;background:none;padding:0;position:relative}
+.lbl .main img{display:block;max-height:min(46vh,380px);max-width:100%;width:auto;border-radius:8px;box-shadow:0 6px 18px rgba(40,10,20,.3)}
+.lbl .neck img{display:block;width:96px;border-radius:6px;box-shadow:0 4px 10px rgba(40,10,20,.3)}
+.lbl .neck span{display:block;font-size:12px;color:var(--muted);text-align:center;margin-top:4px}
+.lbl.empty{justify-content:flex-start;align-items:center;gap:16px;margin-bottom:14px}.lbl.empty svg.b{width:44px;flex:none}
+.lb{position:fixed;inset:0;z-index:70;background:rgba(10,4,6,.92);display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px}
+.lb.on{display:flex}.lb img{max-width:100%;max-height:calc(100% - 40px);object-fit:contain;border-radius:6px}.lb span{color:#ddd;font-size:13px}
+.toast{position:fixed;left:50%;bottom:calc(var(--tabh) + env(safe-area-inset-bottom) + 18px);transform:translate(-50%,20px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;opacity:0;pointer-events:none;transition:.2s;z-index:60;max-width:90vw;text-align:center}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp 0.8s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media(max-width:380px){.acts{grid-template-columns:1fr 1fr}.slot svg{width:50px}}
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<nav class="tabbar"><nav>
+  <a href="#cellar" data-tab="cellar"><svg viewBox="0 0 24 24"><path d="M10 2h4v5c0 1.5 3 2.5 3 5.5V21a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1v-8.5C7 9.5 10 8.5 10 7z"/><path d="M7 14h10"/></svg>내 셀러</a>
+  <a href="#notes" data-tab="notes"><svg viewBox="0 0 24 24"><path d="M7 3h10l-1 7a4 4 0 0 1-8 0z"/><path d="M12 14v6M8.5 21h7"/><path d="M8 7h8"/></svg>시음 노트</a>
+  <a href="#stash" data-tab="stash"><svg viewBox="0 0 24 24"><path d="M5 8h14l-1.2 11.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/><path d="M9.5 13.5l2 2 3.5-4"/></svg>와인 쟁여놓기</a>
+  <a href="#learn" data-tab="learn"><svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M9 8h6M9 12h4"/></svg>와인 공부</a>
+  <a href="#more" data-tab="more"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>더보기</a>
+</nav></nav>
+<div class="scrim" id="scrim"></div>
+<div class="mw" id="mw"><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+<div class="lb" id="lb" role="dialog" aria-label="라벨 크게 보기"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+{
+/* ================= helpers ================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const today = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+const won = n => (n || n === 0) && n !== '' ? Number(n).toLocaleString('ko-KR') + '원' : '—';
+function toast(msg, ms = 2400){ const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('on'), ms); }
+const heldText = (from, tail = '째') => { const p = period(from); return p === '오늘' ? '오늘 구매' : p + tail; };
+function period(from, to){
+  if(!from) return '';
+  const a = new Date(from), b = to ? new Date(to) : new Date();
+  const days = Math.max(0, Math.floor((b - a) / 864e5));
+  if(days < 31) return days === 0 ? '오늘' : days + '일';
+  let m = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth()); if(b.getDate() < a.getDate()) m--;
+  m = Math.max(1, m); const y = Math.floor(m / 12), r = m % 12;
+  return y ? (y + '년' + (r ? ' ' + r + '개월' : '')) : r + '개월';
+}
+const monthsHeld = from => from ? Math.floor((new Date() - new Date(from)) / (864e5 * 30.44)) : 0;
+async function copyText(t){ try{ await navigator.clipboard.writeText(t); toast('복사했어요'); }catch(e){ toast('복사가 막혀 있어요. 길게 눌러 직접 복사해주세요.'); } }
+
+/* ================= constants ================= */
+const TYPES = [
+  {id:'red', name:'레드', glass:'#2E1A12', label:'#F3E6D2'},
+  {id:'white', name:'화이트', glass:'#B8C27A', label:'#FBF6E6'},
+  {id:'rose', name:'로제', glass:'#E9A3A8', label:'#FFF4F1'},
+  {id:'sparkling', name:'스파클링', glass:'#24361F', label:'#F7EFD8'},
+  {id:'dessert', name:'디저트', glass:'#8A5A1E', label:'#FFF4D9'},
+  {id:'etc', name:'기타', glass:'#3B2A33', label:'#EEE6E9'}
+];
+const typeOf = id => TYPES.find(t => t.id === id) || TYPES[0];
+const COUNTRIES = ['프랑스','이탈리아','스페인','미국','칠레','아르헨티나','호주','뉴질랜드','독일','포르투갈','남아공','오스트리아','한국','기타'];
+const TRAITS = [
+  {k:'sweet', n:'당도', a:'드라이', b:'스위트'},
+  {k:'acid', n:'산도', a:'부드러움', b:'상큼·쨍함'},
+  {k:'tannin', n:'타닌', a:'안 느껴짐', b:'떫고 강함'},
+  {k:'body', n:'바디감', a:'가벼움', b:'묵직함'},
+  {k:'visc', n:'점도', a:'물처럼', b:'진득함'},
+  {k:'alc', n:'알코올감', a:'순함', b:'화끈함'},
+  {k:'finish', n:'여운', a:'짧음', b:'길게 남음'}
+];
+const TEXTURES = ['실키','벨벳','크리미','매끈','오일리','거침','버블감'];
+const AROMAS = ['붉은 과일','검은 과일','시트러스','사과·배','열대과일','꽃','허브','향신료','오크·바닐라','초콜릿·커피','흙·버섯','가죽·담배','견과','꿀','미네랄','버터'];
+const REBUY = [{v:0, n:'의향 없음'},{v:1, n:'의향 있음'},{v:2, n:'완전 강추'}];
+const BANDS = [{id:'b1', n:'3만원 이하'},{id:'b2', n:'3~7만원'},{id:'b3', n:'7~15만원'},{id:'b4', n:'15만원 이상'}];
+
+/* ================= wine bottle drawing ================= */
+const BOTTLE_PATH = 'M24 6h12v44c0 12 18 18 18 38v102q0 6-6 6H12q-6 0-6-6V88c0-20 18-26 18-38z';
+const LABEL_BODY = {x:8, y:110, w:44, h:72}, LABEL_NECK = {x:12, y:63, w:36, h:24}; /* LABEL_NECK = 병목 아래 어깨에 붙는 작은 라벨 */
+let BID = 0; /* 사진 틀이 덮는 병의 세로 구간 (viewBox 단위) */
+function bottle(w = {}, cls = ''){
+  const t = typeOf(w.type);
+  const nm = (w.name || 'WINE').split(/\s+/).reduce((a, p) => (a + ' ' + p).trim().length <= 8 ? (a + ' ' + p).trim() : a, '') || (w.name || '').slice(0, 6);
+  const foil = w.type === 'sparkling' ? '#C9A646' : (w.type === 'white' ? '#D8C9A0' : '#6E1E33');
+  const L = LABEL_BODY, N = LABEL_NECK;
+  const lab = w.photo
+    ? `<image href="${w.photo}" x="${L.x}" y="${L.y}" width="${L.w}" height="${L.h}" preserveAspectRatio="xMidYMid slice"/>`
+    : `<rect x="${L.x}" y="${L.y}" width="${L.w}" height="${L.h}" fill="${t.label}"/><line x1="13" y1="${L.y + 12}" x2="47" y2="${L.y + 12}" stroke="#6E1E33" stroke-width=".8"/>
+       <text x="30" y="${L.y + 32}" text-anchor="middle" font-family="Hahmlet,serif" font-weight="700" font-size="${Math.min(8, 36 / Math.max(1, nm.length)).toFixed(2)}" fill="#3A1A22">${esc(nm)}</text>
+       <text x="30" y="${L.y + 48}" text-anchor="middle" font-family="serif" font-size="7" fill="#7C6A70">${esc(w.vintage || 'NV')}</text>`;
+  const cid = 'bc' + (++BID);
+  const neckIn = w.neckPhoto
+    ? `<image href="${w.neckPhoto}" x="${N.x}" y="${N.y}" width="${N.w}" height="${N.h}" preserveAspectRatio="xMidYMid slice"/>`
+    : w.photo ? '' : `<rect x="${N.x}" y="${N.y}" width="${N.w}" height="${N.h}" fill="${t.label}"/><rect x="${N.x + 2}" y="${N.y + 2}" width="${N.w - 4}" height="${N.h - 4}" fill="none" stroke="#6E1E33" stroke-width=".5"/>
+       <circle cx="30" cy="${N.y + N.h / 2 + 1}" r="4.2" fill="none" stroke="#8A6A3A" stroke-width=".7"/><text x="30" y="${N.y + 7}" text-anchor="middle" font-family="serif" font-size="3.6" fill="#3A1A22">${esc((w.name || '').split(/\s+/)[0].slice(0, 10))}</text>`;
+  const neck = neckIn ? `<g clip-path="url(#${cid})">${neckIn}<rect x="${N.x}" y="${N.y}" width="${N.w}" height="${N.h}" fill="none" stroke="rgba(0,0,0,.2)" stroke-width=".6"/></g>` : '';
+  return `<svg class="${cls}" viewBox="0 0 60 200" aria-hidden="true">
+    <defs><clipPath id="${cid}"><path d="${BOTTLE_PATH}" transform="translate(30 0) scale(.94 1) translate(-30 0)"/></clipPath></defs>
+    <path d="${BOTTLE_PATH}" fill="${t.glass}" stroke="rgba(0,0,0,.35)" stroke-width=".6"/>
+    <rect x="22.5" y="3" width="15" height="34" rx="2" fill="${foil}"/>
+    ${neck}
+    ${lab}
+    <rect x="${L.x}" y="${L.y}" width="${L.w}" height="${L.h}" fill="none" stroke="rgba(0,0,0,.18)" stroke-width=".6"/>
+    <rect x="11" y="78" width="3.2" height="110" rx="1.6" fill="#fff" opacity=".2"/>
+    <rect x="25.5" y="38" width="1.6" height="14" rx=".8" fill="#fff" opacity=".18"/>
+    <path d="M17 70q-3 4-4.5 9" stroke="#fff" stroke-width="1.6" fill="none" opacity=".18" stroke-linecap="round"/>
+  </svg>`;
+}
+
+/* ================= store ================= */
+const LS = 'wine.v1';
+const LONG_OPTS = [[1,'한 달'],[3,'3개월'],[6,'6개월'],[12,'12개월'],[18,'1년 반'],[24,'2년'],[36,'3년'],[48,'4년'],[60,'5년 이상']];
+const longLabel = m => (LONG_OPTS.find(o => o[0] == m) || [m, m + '개월'])[1].replace(' 이상', '');
+const defSettings = () => ({ nickname:'와알못', longMonths:24, sort:'recent', createdAt: today() });
+const Store = {
+  mode:'local', db:null, uid:null, chains:{},
+  S:{ settings:defSettings(), wines:{}, tastings:{}, market:{} },
+  loadLocal(){ try{ const raw = localStorage.getItem(LS); if(!raw) return; const d = JSON.parse(raw);
+    this.S.wines = d.wines || {}; this.S.tastings = d.tastings || {}; this.S.market = d.market || {}; this.S.settings = {...defSettings(), ...(d.settings || {})}; }catch(e){} },
+  saveLocal(){ try{ localStorage.setItem(LS, JSON.stringify(this.S)); }catch(e){
+    try{ const lite = JSON.parse(JSON.stringify(this.S)); for(const k of ['wines','tastings']) Object.values(lite[k]).forEach(x => { delete x.photo; delete x.neckPhoto; }); localStorage.setItem(LS, JSON.stringify(lite)); }catch(_){} } },
+  lib(){ return this.db.doc('data/users/' + this.uid + '/lib'); },
+  enqueue(key, fn){
+    const p = (this.chains[key] || Promise.resolve()).then(fn).catch(e => {
+      console.warn('write failed', e);
+      if(e && e.code === 'quota_exceeded') toast('저장 공간이 가득 찼어요. 오래된 라벨 사진을 지워주세요.');
+      else if(e && e.code === 'invalid_argument'){ this.mode = 'local'; toast('계정 저장이 막혀 이 브라우저에만 저장할게요.'); render(); }
+    });
+    this.chains[key] = p; return p;
+  },
+  async connect(){
+    try{
+      if(!window.claude || !window.claude.use) return;
+      const [db, user] = await Promise.all([claude.use('db'), claude.use('user')]);
+      if(!db || !user) return;
+      const id = await user.id(); if(!id) return;
+      this.db = db; this.uid = id;
+      const lib = this.lib();
+      const timeout = new Promise((_, rej) => setTimeout(() => rej({code:'timeout'}), 10000));
+      const [ls, ws, ts, ms] = await Promise.race([Promise.all([lib.get(), lib.collection('wines').get(), lib.collection('tastings').get(), lib.collection('market').get()]), timeout]);
+      this.mode = 'db';
+      if(!ls.exists && ws.empty && ts.empty && ms.empty){
+        await lib.set({ settings: JSON.parse(JSON.stringify(this.S.settings)) });
+        for(const k of ['wines','tastings','market']) for(const it of Object.values(this.S[k])) await lib.collection(k).doc(it.id).set(JSON.parse(JSON.stringify(it)));
+      } else {
+        const clone = d => JSON.parse(JSON.stringify(d.data()));
+        this.S.settings = {...defSettings(), ...(ls.exists ? (ls.data().settings || {}) : {})};
+        this.S.wines = {}; ws.docs.forEach(d => this.S.wines[d.id] = clone(d));
+        this.S.tastings = {}; ts.docs.forEach(d => this.S.tastings[d.id] = clone(d));
+        this.S.market = {}; ms.docs.forEach(d => this.S.market[d.id] = clone(d));
+        this.saveLocal();
+      }
+      render();
+    }catch(e){ console.warn('db unavailable', e); this.mode = 'local'; render(); }
+  },
+  put(kind, item){ this.S[kind][item.id] = item; this.saveLocal();
+    if(this.mode === 'db'){ const ref = this.lib().collection(kind).doc(item.id); const body = JSON.parse(JSON.stringify(item)); this.enqueue(kind + '/' + item.id, () => ref.set(body)); } },
+  del(kind, id){ delete this.S[kind][id]; this.saveLocal();
+    if(this.mode === 'db'){ const ref = this.lib().collection(kind).doc(id); this.enqueue(kind + '/' + id, () => ref.delete()); } },
+  setSettings(p){ this.S.settings = {...this.S.settings, ...p}; this.saveLocal();
+    if(this.mode === 'db'){ const body = { settings: JSON.parse(JSON.stringify(this.S.settings)) }; this.enqueue('lib', () => this.lib().set(body)); } },
+  async resetAll(){
+    if(this.mode === 'db') for(const k of ['wines','tastings','market']) for(const id of Object.keys(this.S[k])){ const ref = this.lib().collection(k).doc(id); this.enqueue(k + '/' + id, () => ref.delete()); }
+    this.S.wines = {}; this.S.tastings = {}; this.S.market = {}; this.setSettings(defSettings());
+  }
+};
+const S = () => Store.S;
+const wines = () => Object.values(S().wines);
+const inCellar = () => wines().filter(w => (w.qty ?? 1) > 0);
+const finished = () => wines().filter(w => (w.qty ?? 1) <= 0);
+const tastings = () => Object.values(S().tastings).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+/* ================= capabilities ================= */
+let SAMPLE = null, DL = null;
+async function caps(){
+  if(!window.claude || !window.claude.use) return;
+  try{ SAMPLE = await claude.use('sample'); }catch(e){}
+  try{ DL = await claude.use('downloads'); }catch(e){}
+  render();
+}
+async function ask(prompt, opts = {}){
+  if(!SAMPLE) throw {code:'none'};
+  const r = await SAMPLE(prompt, opts);
+  return (r && r.text) || '';
+}
+const aiErr = e => e && e.code === 'not_granted' ? 'AI 사용이 허용되지 않았어요.' : e && e.code === 'rate_limited' ? '잠시 후 다시 시도해주세요.' : 'AI 답변을 받지 못했어요.';
+
+/* ================= knowledge base (Tab 3) ================= */
+const GRAPES = [
+  {id:'cs', n:'카베르네 소비뇽', en:'Cabernet Sauvignon', t:'red', body:5, tannin:5, acid:3, sweet:1, kw:'블랙커런트, 삼나무, 연필심, 민트', reg:'보르도 좌안, 나파 밸리, 칠레', food:'스테이크, 양갈비, 숙성 치즈',
+    tip:'"와인의 왕". 진하고 떫은 맛이 확실해서 처음엔 칠레산이 부드럽게 시작하기 좋아요.'},
+  {id:'mer', n:'메를로', en:'Merlot', t:'red', body:4, tannin:3, acid:3, sweet:1, kw:'자두, 블랙체리, 초콜릿', reg:'보르도 우안(생테밀리옹·포므롤), 칠레, 미국', food:'불고기, 토마토 파스타, 오리',
+    tip:'카베르네보다 둥글고 말랑해요. 레드 입문에 많이 추천되는 품종.'},
+  {id:'pn', n:'피노 누아', en:'Pinot Noir', t:'red', body:2, tannin:2, acid:4, sweet:1, kw:'체리, 산딸기, 장미, 버섯', reg:'부르고뉴, 뉴질랜드, 오리건', food:'연어, 닭요리, 버섯 요리',
+    tip:'가볍고 섬세해요. 같은 품종이라도 산지에 따라 가격 차이가 아주 큰 편.'},
+  {id:'sy', n:'시라 / 쉬라즈', en:'Syrah / Shiraz', t:'red', body:5, tannin:4, acid:3, sweet:1, kw:'블루베리, 후추, 훈연, 올리브', reg:'북부 론(프랑스), 호주 바로사', food:'바비큐, 양념갈비, 매운 고기요리',
+    tip:'프랑스에선 "시라", 호주에선 "쉬라즈". 호주 쪽이 더 과일 폭탄 스타일이에요.'},
+  {id:'mal', n:'말벡', en:'Malbec', t:'red', body:4, tannin:4, acid:3, sweet:1, kw:'블랙베리, 자두, 제비꽃, 코코아', reg:'아르헨티나 멘도사, 프랑스 카오르', food:'숯불고기, 햄버거',
+    tip:'아르헨티나 대표 품종. 가격 대비 진하고 만족감이 큰 편이에요.'},
+  {id:'sg', n:'산지오베제', en:'Sangiovese', t:'red', body:3, tannin:4, acid:5, sweet:1, kw:'체리, 토마토잎, 허브, 가죽', reg:'토스카나(키안티, 브루넬로 디 몬탈치노)', food:'피자, 라자냐, 토마토 요리',
+    tip:'산미가 높아 토마토 들어간 음식과 찰떡. 이탈리아 음식점에서 고르기 좋아요.'},
+  {id:'neb', n:'네비올로', en:'Nebbiolo', t:'red', body:4, tannin:5, acid:5, sweet:1, kw:'장미, 타르, 체리, 감초', reg:'피에몬테(바롤로, 바르바레스코)', food:'트러플, 버섯 리조또, 갈비찜',
+    tip:'색은 연한데 타닌과 산미는 강한 반전 품종. "와인의 왕" 바롤로의 품종.'},
+  {id:'tem', n:'템프라니요', en:'Tempranillo', t:'red', body:4, tannin:4, acid:3, sweet:1, kw:'체리, 무화과, 가죽, 바닐라', reg:'스페인 리오하, 리베라 델 두에로', food:'하몽, 돼지고기, 타파스',
+    tip:'라벨의 "크리안사 < 레세르바 < 그란 레세르바" 순으로 숙성 기간이 길어요.'},
+  {id:'ch', n:'샤르도네', en:'Chardonnay', t:'white', body:4, tannin:0, acid:3, sweet:1, kw:'사과, 레몬, 버터, 바닐라(오크 숙성 시)', reg:'부르고뉴(샤블리 포함), 캘리포니아', food:'크림 파스타, 랍스터, 닭가슴살',
+    tip:'오크 숙성하면 버터·바닐라 풍미, 샤블리처럼 안 하면 깔끔하고 미네랄리.'},
+  {id:'sb', n:'소비뇽 블랑', en:'Sauvignon Blanc', t:'white', body:2, tannin:0, acid:5, sweet:1, kw:'자몽, 풀, 패션프루트, 라임', reg:'뉴질랜드 말보로, 루아르(상세르)', food:'샐러드, 해산물, 염소치즈',
+    tip:'상큼함 끝판왕. 뉴질랜드 산이 화이트 입문으로 인기가 많아요.'},
+  {id:'ri', n:'리슬링', en:'Riesling', t:'white', body:2, tannin:0, acid:5, sweet:3, kw:'청사과, 라임, 복숭아, 꿀, (숙성 시) 페트롤', reg:'독일 모젤, 알자스, 호주', food:'매운 아시아 음식, 족발, 돼지고기',
+    tip:'드라이부터 달콤까지 폭이 넓어요. 독일 라벨의 "Trocken"은 드라이라는 뜻.'},
+  {id:'mo', n:'모스카토', en:'Moscato', t:'white', body:1, tannin:0, acid:3, sweet:5, kw:'청포도, 복숭아, 오렌지꽃', reg:'이탈리아 피에몬테(모스카토 다스티)', food:'과일, 디저트, 케이크',
+    tip:'달콤하고 살짝 탄산이 있어 와인이 처음인 분들에게 1순위로 추천돼요.'},
+  {id:'sp', n:'샴페인·스파클링', en:'Champagne / Cava / Prosecco', t:'sparkling', body:2, tannin:0, acid:5, sweet:2, kw:'사과, 레몬, 브리오슈, 토스트', reg:'샹파뉴(프랑스), 카바(스페인), 프로세코(이탈리아)', food:'튀김, 굴, 치킨',
+    tip:'"Brut"는 드라이, "Demi-Sec"은 달콤한 편. 치킨과 의외로 잘 맞아요.'},
+  {id:'ro', n:'로제', en:'Rosé', t:'rose', body:2, tannin:1, acid:4, sweet:2, kw:'딸기, 수박, 복숭아, 장미', reg:'프로방스(프랑스), 스페인', food:'샐러드, 떡볶이, 여름 브런치',
+    tip:'단 와인이라는 오해가 많지만 프로방스 로제는 대부분 드라이해요.'}
+];
+const KB_WINES = [
+  {n:'몬테스 알파 카베르네 소비뇽', en:"Montes Alpha Cabernet Sauvignon", g:'cs', c:'칠레', b:'b1'},
+  {n:'1865 셀렉티드 빈야드 카베르네 소비뇽', en:"San Pedro 1865 Selected Vineyards Cabernet Sauvignon", g:'cs', c:'칠레', b:'b2'},
+  {n:'로버트 몬다비 나파 밸리 카베르네 소비뇽', en:"Robert Mondavi Napa Valley Cabernet Sauvignon", g:'cs', c:'미국', b:'b3'},
+  {n:'오퍼스 원', en:"Opus One", g:'cs', c:'미국', b:'b4'},
+  {n:'카시예로 델 디아블로 메를로', en:"Casillero del Diablo Merlot", g:'mer', c:'칠레', b:'b1'},
+  {n:'디코이 메를로 (덕혼)', en:"Decoy Merlot", g:'mer', c:'미국', b:'b2'},
+  {n:'샤토 페트뤼스', en:"Petrus", g:'mer', c:'프랑스', b:'b4'},
+  {n:'오이스터 베이 피노 누아', en:"Oyster Bay Pinot Noir", g:'pn', c:'뉴질랜드', b:'b1'},
+  {n:'루이 자도 부르고뉴 피노 누아', en:"Louis Jadot Bourgogne Pinot Noir", g:'pn', c:'프랑스', b:'b2'},
+  {n:'클라우디 베이 피노 누아', en:"Cloudy Bay Pinot Noir", g:'pn', c:'뉴질랜드', b:'b3'},
+  {n:'도멘 드 라 로마네 콩티 (DRC)', en:"Domaine de la Romanee-Conti", g:'pn', c:'프랑스', b:'b4'},
+  {n:'옐로우 테일 쉬라즈', en:"Yellow Tail Shiraz", g:'sy', c:'호주', b:'b1'},
+  {n:'E. 기갈 꼬뜨 뒤 론 루즈', en:"E. Guigal Cotes du Rhone Rouge", g:'sy', c:'프랑스', b:'b2'},
+  {n:'펜폴즈 빈 28 쉬라즈', en:"Penfolds Bin 28 Shiraz", g:'sy', c:'호주', b:'b3'},
+  {n:'펜폴즈 그랜지', en:"Penfolds Grange", g:'sy', c:'호주', b:'b4'},
+  {n:'트라피체 말벡', en:"Trapiche Malbec", g:'mal', c:'아르헨티나', b:'b1'},
+  {n:'카테나 말벡', en:"Catena Malbec", g:'mal', c:'아르헨티나', b:'b2'},
+  {n:'루피노 키안티', en:"Ruffino Chianti", g:'sg', c:'이탈리아', b:'b1'},
+  {n:'루피노 리제르바 두칼레 키안티 클라시코', en:"Ruffino Riserva Ducale Chianti Classico", g:'sg', c:'이탈리아', b:'b2'},
+  {n:'반피 브루넬로 디 몬탈치노', en:"Banfi Brunello di Montalcino", g:'sg', c:'이탈리아', b:'b3'},
+  {n:'프로두토리 델 바르바레스코 랑게 네비올로', en:"Produttori del Barbaresco Langhe Nebbiolo", g:'neb', c:'이탈리아', b:'b2'},
+  {n:'폰타나프레다 바롤로', en:"Fontanafredda Barolo", g:'neb', c:'이탈리아', b:'b3'},
+  {n:'캄포 비에호 템프라니요', en:"Campo Viejo Tempranillo", g:'tem', c:'스페인', b:'b1'},
+  {n:'마르케스 데 리스칼 레세르바', en:"Marques de Riscal Reserva", g:'tem', c:'스페인', b:'b2'},
+  {n:'베가 시실리아 우니코', en:"Vega Sicilia Unico", g:'tem', c:'스페인', b:'b4'},
+  {n:'켄달 잭슨 빈트너스 리저브 샤르도네', en:"Kendall-Jackson Vintner's Reserve Chardonnay", g:'ch', c:'미국', b:'b2'},
+  {n:'루이 자도 샤블리', en:"Louis Jadot Chablis", g:'ch', c:'프랑스', b:'b2'},
+  {n:'퓔리니 몽라셰 (부르고뉴 화이트)', en:"Puligny-Montrachet", g:'ch', c:'프랑스', b:'b4'},
+  {n:'빌라 마리아 프라이빗 빈 소비뇽 블랑', en:"Villa Maria Private Bin Sauvignon Blanc", g:'sb', c:'뉴질랜드', b:'b1'},
+  {n:'킴 크로포드 소비뇽 블랑', en:"Kim Crawford Sauvignon Blanc", g:'sb', c:'뉴질랜드', b:'b2'},
+  {n:'클라우디 베이 소비뇽 블랑', en:"Cloudy Bay Sauvignon Blanc", g:'sb', c:'뉴질랜드', b:'b2'},
+  {n:'닥터 루젠 닥터 엘 리슬링', en:"Dr. Loosen Dr. L Riesling", g:'ri', c:'독일', b:'b1'},
+  {n:'트림바크 리슬링', en:"Trimbach Riesling", g:'ri', c:'프랑스(알자스)', b:'b2'},
+  {n:'간치아 모스카토 다스티', en:"Gancia Moscato d'Asti", g:'mo', c:'이탈리아', b:'b1'},
+  {n:'G.D. 바이라 모스카토 다스티', en:"G.D. Vajra Moscato d'Asti", g:'mo', c:'이탈리아', b:'b2'},
+  {n:'프레시넷 코르동 네그로 카바', en:"Freixenet Cordon Negro Cava", g:'sp', c:'스페인', b:'b1'},
+  {n:'모엣 & 샹동 브뤼 앵페리얼', en:"Moet & Chandon Brut Imperial", g:'sp', c:'프랑스', b:'b3'},
+  {n:'뵈브 클리코 옐로우 라벨 브뤼', en:"Veuve Clicquot Yellow Label Brut", g:'sp', c:'프랑스', b:'b3'},
+  {n:'돔 페리뇽', en:"Dom Perignon", g:'sp', c:'프랑스', b:'b4'},
+  {n:'샤토 미라발 로제', en:"Chateau Miraval Rose", g:'ro', c:'프랑스', b:'b2'},
+  {n:'위스퍼링 엔젤 로제', en:"Whispering Angel Rose", g:'ro', c:'프랑스', b:'b2'}
+];
+const SOURCES = [
+  {n:'와인21닷컴', u:'https://www.wine21.com', d:'1998년부터 운영된 국내 대표 와인 플랫폼. 3만 5천 개 넘는 와인 검색, 국내 수입 와인 정보, 이달의 와인 추천.', sc:'한국어 · 무료'},
+  {n:'Vivino', u:'https://www.vivino.com', d:'라벨 사진으로 와인을 찾고 전 세계 사용자 별점을 볼 수 있는 앱. "보통 사람들 입맛"을 보기에 좋아요.', sc:'5점 별점'},
+  {n:'Wine Folly', u:'https://winefolly.com', d:'품종·산지·맛 구조를 그림으로 쉽게 설명하는 입문자용 교육 사이트.', sc:'입문 교육'},
+  {n:'Wine-Searcher', u:'https://www.wine-searcher.com', d:'전 세계 판매가 비교와 여러 평론가 점수를 한곳에 모아 보여줘요.', sc:'가격 · 점수 모음'},
+  {n:'Wine Spectator', u:'https://www.winespectator.com', d:'미국 대표 와인 매거진. 매년 연말 발표하는 "Top 100" 리스트가 유명해요.', sc:'100점 · 일부 유료'},
+  {n:'Robert Parker Wine Advocate', u:'https://www.robertparker.com', d:'100점 평가를 대중화한 로버트 파커의 매체. 흔히 말하는 "파커 포인트".', sc:'100점 · 유료'},
+  {n:'Jancis Robinson', u:'https://www.jancisrobinson.com', d:'영국의 마스터 오브 와인 잰시스 로빈슨. 가장 영향력 있는 평론가로 꼽혀요.', sc:'20점 · 유료'},
+  {n:'Decanter', u:'https://www.decanter.com', d:'영국 와인 매거진. 세계 최대 규모 대회 중 하나인 DWWA(디캔터 월드 와인 어워드) 주최.', sc:'100점 · 메달'},
+  {n:'Vinous', u:'https://vinous.com', d:'안토니오 갈로니가 이끄는 평론 매체. 이탈리아·부르고뉴·샴페인 평가가 강해요.', sc:'100점 · 유료'},
+  {n:'James Suckling', u:'https://www.jamessuckling.com', d:'와인 스펙테이터 출신 평론가. 국내 와인 판매처에서도 점수가 자주 인용돼요.', sc:'100점'}
+];
+
+/* ================= sheet ================= */
+let sheetHooks = null;
+function openSheet(html, hooks = {}){
+  const sh = $('#sheet');
+  sh.innerHTML = `<button class="x" data-act="close" aria-label="닫기">✕</button>` + html;
+  sh.scrollTop = 0; $('#mw').classList.add('on'); $('#scrim').classList.add('on'); sheetHooks = hooks;
+  if(hooks.onMount) hooks.onMount(sh);
+}
+function closeSheet(){ $('#mw').classList.remove('on'); $('#scrim').classList.remove('on'); if(sheetHooks && sheetHooks.onClose) sheetHooks.onClose(); sheetHooks = null; }
+$('#lb').addEventListener('click', () => $('#lb').classList.remove('on'));
+$('#mw').addEventListener('click', e => { if(e.target.id === 'mw') closeSheet(); });
+document.addEventListener('keydown', e => { if(e.key === 'Escape' && $('#mw').classList.contains('on')) closeSheet(); });
+
+function pickFile(accept){
+  return new Promise(res => { const i = document.createElement('input'); i.type = 'file'; i.accept = accept; i.onchange = () => res(i.files[0] || null); i.click(); });
+}
+function loadImg(file){ return new Promise((res, rej) => { const u = URL.createObjectURL(file); const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = u; }); }
+function shrink(img, max = 1024){
+  const s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return new Promise(r => c.toBlob(b => r(b), 'image/jpeg', .85));
+}
+
+/* ================= label photo cropper ================= */
+/* 한 장의 세로 사진에서 라벨을 두 번 잘라냄: 1) 본 라벨  2) 병목(어깨) 라벨 */
+function cropStep(img, o){
+  const tall = o.r.h > o.r.w;
+  openSheet(`<div class="muted small" style="font-weight:700;color:var(--wine)">${o.step}</div><h2 style="margin-top:2px">${o.title}</h2>
+    <p class="muted small" style="margin-top:-8px">${o.desc}</p>
+    <div class="crop" id="cr" style="${tall ? 'height:min(50vh,400px)' : 'width:min(100%,330px)'};aspect-ratio:${o.r.w}/${o.r.h}"></div>
+    <div class="sl"><div class="h"><span>확대</span></div><input type="range" id="cz" min="0.3" max="4" step="0.01" value="1"></div>
+    <button class="btn block" id="cok">${o.ok}</button>${o.skip ? `<button class="btn soft block" style="margin-top:8px" id="csk">${o.skip}</button>` : ''}`, { onMount(p){
+    const box = p.querySelector('#cr'), z = p.querySelector('#cz'); box.appendChild(img);
+    let W, H, s0, sc, x = 0, y = 0;
+    const clamp = () => { x = Math.min(0, Math.max(W - img.naturalWidth * sc, x)); y = Math.min(0, Math.max(H - img.naturalHeight * sc, y)); };
+    const draw = () => { clamp(); img.style.transform = `translate(${x}px,${y}px) scale(${sc})`; };
+    const sMin = () => Math.max(W / img.naturalWidth, H / img.naturalHeight);
+    requestAnimationFrame(() => { const r = box.getBoundingClientRect(); W = r.width; H = r.height;
+      s0 = W / (img.naturalWidth * o.fw); sc = Math.max(s0, sMin()); z.min = (sMin() / s0).toFixed(3); z.value = sc / s0;
+      x = W / 2 - img.naturalWidth * o.cx * sc; y = H / 2 - img.naturalHeight * o.cy * sc; draw(); });
+    z.oninput = () => { const cx = (W / 2 - x) / sc, cy = (H / 2 - y) / sc; sc = Math.max(sMin(), s0 * z.value); x = W / 2 - cx * sc; y = H / 2 - cy * sc; draw(); };
+    let drag = null;
+    box.onpointerdown = e => { drag = {px:e.clientX, py:e.clientY, x, y}; box.setPointerCapture(e.pointerId); };
+    box.onpointermove = e => { if(!drag) return; x = drag.x + e.clientX - drag.px; y = drag.y + e.clientY - drag.py; draw(); };
+    box.onpointerup = box.onpointercancel = () => drag = null;
+    p.querySelector('#cok').onclick = () => { const c = document.createElement('canvas'); c.width = o.out[0]; c.height = o.out[1];
+      c.getContext('2d').drawImage(img, -x / sc, -y / sc, W / sc, H / sc, 0, 0, c.width, c.height); o.done(c.toDataURL('image/jpeg', .82)); };
+    const sk = p.querySelector('#csk'); if(sk) sk.onclick = () => o.done('');
+  }});
+}
+function cropLabel(file, done){
+  loadImg(file).then(img => {
+    cropStep(img, { step:'1 / 2', title:'본 라벨 맞추기', r:LABEL_BODY, out:[600, 982], cx:.5, cy:.74, fw:.95,
+      desc:'병 아래쪽의 큰 라벨이 틀에 꽉 차게 사진을 끌어서 옮기고 크기를 조절하세요.', ok:'다음: 병목 라벨',
+      done: body => cropStep(img, { step:'2 / 2', title:'병목 라벨 맞추기', r:LABEL_NECK, out:[540, 360], cx:.5, cy:.30, fw:.72,
+        desc:'같은 사진에서 병목 아래 어깨에 붙은 작은 라벨을 틀에 맞춰주세요.', ok:'병에 붙이기', skip:'병목 라벨 없음 (건너뛰기)',
+        done: neck => done(body, neck) }) });
+  }).catch(() => toast('사진을 열지 못했어요'));
+}
+
+/* ================= TAB 1: cellar ================= */
+const cellarUI = { type:'all' };
+function viewCellar(){
+  const st = S().settings, all = inCellar();
+  const list = all.filter(w => cellarUI.type === 'all' || w.type === cellarUI.type);
+  const sorters = {
+    recent:(a, b) => (b.buyDate || '').localeCompare(a.buyDate || ''),
+    old:(a, b) => (a.buyDate || '9').localeCompare(b.buyDate || '9'),
+    price:(a, b) => (+b.price || 0) - (+a.price || 0),
+    vintage:(a, b) => (+a.vintage || 9999) - (+b.vintage || 9999)
+  };
+  list.sort(sorters[st.sort] || sorters.recent);
+  const bottles = all.reduce((s, w) => s + (+w.qty || 1), 0);
+  const total = all.reduce((s, w) => s + (+w.price || 0) * (+w.qty || 1), 0);
+  const avgM = all.length ? Math.round(all.reduce((s, w) => s + monthsHeld(w.buyDate), 0) / all.length) : 0;
+  const longs = all.filter(w => monthsHeld(w.buyDate) >= st.longMonths);
+  const types = TYPES.filter(t => all.some(w => w.type === t.id));
+  return `${header('내 와인셀러', `${esc(st.nickname)}님의 셀러에 ${bottles}병이 쉬고 있어요`)}
+  ${all.length ? `
+  <div class="stats" style="margin-bottom:14px"><div><b>${bottles}병</b><span>보관 중</span></div><div><b>${total >= 1e4 ? Math.round(total / 1e4).toLocaleString() + '만' : total.toLocaleString()}원</b><span>총 구매가</span></div><div><b>${avgM < 1 ? '1달 미만' : avgM + '개월'}</b><span>평균 보관</span></div></div>
+  ${longs.length ? `<div class="card small" style="background:color-mix(in srgb,var(--gold) 14%,var(--card))">🕰 <b>${longs.length}병</b>이 ${longLabel(st.longMonths)} 넘게 잠들어 있어요: ${longs.slice(0, 3).map(w => esc(w.name)).join(', ')}${longs.length > 3 ? ' 외' : ''}</div>` : ''}
+  <div class="row between" style="margin-bottom:10px">
+    <div class="chips scroll"><button class="chip ${cellarUI.type === 'all' ? 'on' : ''}" data-act="ctype" data-v="all">전체</button>${types.map(t => `<button class="chip ${cellarUI.type === t.id ? 'on' : ''}" data-act="ctype" data-v="${t.id}">${t.name}</button>`).join('')}</div>
+    <select id="csort" aria-label="정렬" style="border:1px solid var(--line);background:var(--card);border-radius:10px;padding:6px 8px;font-size:14px;flex:none">
+      ${[['recent','최근 구매순'],['old','오래 보관순'],['price','가격 높은순'],['vintage','빈티지순']].map(([v, n]) => `<option value="${v}" ${st.sort === v ? 'selected' : ''}>${n}</option>`).join('')}</select>
+  </div>
+  ${fridge(list)}
+  <button class="btn block" style="margin-top:16px" data-act="new-wine">＋ 와인 등록하기</button>
+  ${finished().length ? `<div class="sec"><h2>다 마신 와인</h2><span class="muted small">${finished().length}종</span></div>${finished().map(w => itemRow(w, `${esc(w.country || '')} · ${won(w.price)}`, 'wine')).join('')}` : ''}`
+  : `<div class="card empty">${bottle({type:'red', name:'MY WINE'}, 'b').replace('<svg', '<svg style="width:64px"')}
+     <div class="big">셀러가 아직 비어 있어요</div><p>산 와인을 등록하고, 라벨 사진을 찍어 병에 붙여보세요.</p>
+     <button class="btn block" data-act="new-wine">＋ 첫 와인 등록하기</button>
+     <button class="btn soft block" style="margin-top:8px" data-act="demo">예시 와인 3병으로 둘러보기</button></div>`}`;
+}
+function fridge(list){
+  const cell = w => w ? `<button class="cell" data-act="wine" data-id="${w.id}" aria-label="${esc(w.name)}">${(+w.qty || 1) > 1 ? `<span class="qty">×${w.qty}</span>` : ''}<span class="bt">${bottle(w)}</span><span class="plank"></span><span class="tg"><b>${esc(w.name)}</b><small>${w.vintage ? esc(w.vintage) + ' · ' : ''}${heldText(w.buyDate)}</small></span></button>`
+    : `<div class="cell" aria-hidden="true"><span class="bt"></span><span class="plank"></span></div>`;
+  const rows = []; for(let i = 0; i < Math.max(list.length, 1); i += 3) rows.push([0, 1, 2].map(j => list[i + j]));
+  const btl = list.reduce((s, w) => s + (+w.qty || 1), 0);
+  return `<div class="fridge"><div class="fr-top"><span class="fr-name">${esc(S().settings.nickname)}의 셀러</span><span class="fr-disp"><b>13</b>℃<i>${btl}병</i></span></div>
+    <div class="fr-door"><div class="fr-in">${rows.map(r => `<div class="fr-row">${r.map(cell).join('')}</div>`).join('')}</div><div class="fr-glass"></div><div class="fr-handle"></div></div>
+    <div class="fr-base"></div></div>`;
+}
+function itemRow(w, sub, act){
+  return `<button class="item" data-act="${act}" data-id="${w.id}">${bottle(w, 'b')}<div><div class="t">${esc(w.name)}${w.vintage ? ' <span class="muted" style="font-weight:500">' + esc(w.vintage) + '</span>' : ''}</div><div class="s">${sub}</div></div></button>`;
+}
+
+function wineDetail(w){
+  const ts = tastings().filter(t => t.wineId === w.id);
+  const held = (+w.qty || 1) > 0;
+  openSheet(`<div class="hero">${bottle(w, 'b')}<div><div class="muted small">${typeOf(w.type).name}${w.grape ? ' · ' + esc(w.grape) : ''}</div><div class="t">${esc(w.name)}</div>
+      <div class="muted">${[w.country, w.region].filter(Boolean).map(esc).join(' · ')}</div></div></div>
+    <dl class="kv card">
+      <dt>빈티지</dt><dd>${esc(w.vintage || 'NV(빈티지 없음)')}</dd>
+      <dt>구매 날짜</dt><dd>${esc(w.buyDate || '—')}</dd>
+      <dt>보관 기간</dt><dd>${w.buyDate ? (held ? heldText(w.buyDate, '째 보관 중') : (period(w.buyDate, w.finishDate) === '오늘' ? '산 날 바로 마심' : period(w.buyDate, w.finishDate) + ' 보관 후 마심')) : '—'}</dd>
+      <dt>산 가격</dt><dd>${won(w.price)}${w.shop ? ' · ' + esc(w.shop) : ''}</dd>
+      <dt>남은 수량</dt><dd>${held ? (+w.qty || 1) + '병' : '다 마셨어요'}</dd>
+      ${w.memo ? `<dt>메모</dt><dd>${esc(w.memo)}</dd>` : ''}
+    </dl>
+    ${ts.length ? `<div class="list-h">이 와인의 시음 노트</div>${ts.map(t => `<button class="item" data-act="tasting" data-id="${t.id}" style="grid-template-columns:minmax(0,1fr)"><div>${stars(t.rating)}${rebuyBadge(t.rebuy)}<div class="s">${esc(t.date)}${t.oneLine ? ' · ' + esc(t.oneLine) : ''}</div></div></button>`).join('')}` : ''}
+    <div class="acts">
+      ${held ? `<button class="btn" data-act="drink" data-id="${w.id}">🍷 마셨어요</button>` : `<button class="btn" data-act="restock" data-id="${w.id}">다시 들임</button>`}
+      <button class="btn soft" data-act="edit-wine" data-id="${w.id}">수정</button>
+      <button class="btn soft" data-act="del-wine" data-id="${w.id}">삭제</button>
+    </div>`);
+}
+
+function dataUrlToBlob(u){ const [h, b] = u.split(','); const bin = atob(b); const a = new Uint8Array(bin.length); for(let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return new Blob([a], {type:(h.match(/:(.*?);/) || [])[1] || 'image/jpeg'}); }
+function wineForm(w = {}, srcFile = null){
+  const isNew = !w.id; let photo = w.photo || '', neckPhoto = w.neckPhoto || ''; let type = w.type || 'red';
+  openSheet(`<h2>${isNew ? '와인 등록' : '와인 정보 수정'}</h2>
+    <div class="photo"><div id="wf-b">${bottle({...w, type, photo, neckPhoto}, 'b')}</div><div>
+      <div style="font-weight:600">라벨 사진으로 병 만들기</div><div class="note" style="margin:0 0 8px">병 전체가 나오게 <b>세로로</b> 찍으면, 같은 사진에서 본 라벨과 병목 라벨을 차례로 맞춰 붙여요.</div>
+      <div class="row wrap"><button type="button" class="btn sm" id="wf-ph">📷 ${photo ? '사진 바꾸기' : '사진 찍기·고르기'}</button>${photo ? '<button type="button" class="btn sm soft" id="wf-rm">사진 빼기</button>' : ''}</div>
+      ${photo ? `<button type="button" class="btn sm ghost" id="wf-aibtn" style="margin-top:8px;width:100%">✨ AI로 라벨 읽어 자동 입력</button>` : ''}
+      <div class="note" id="wf-ai">${!SAMPLE ? '' : photo ? '이름·국가·지역·품종·빈티지·종류를 사진에서 읽어 채워드려요.' : '사진을 고르면 AI가 라벨을 읽어 자동으로 채워드려요.'}</div></div></div>
+    <form id="wf">
+      <div class="seg" id="wf-type">${TYPES.slice(0, 5).map(t => `<button type="button" data-v="${t.id}" class="${type === t.id ? 'on' : ''}">${t.name}</button>`).join('')}</div>
+      <label class="f"><span>와인 이름 *</span><input name="name" required value="${esc(w.name)}" placeholder="예: 몬테스 알파 카베르네 소비뇽"></label>
+      <label class="f"><span>영문 이름 <em style="font-style:normal;font-size:12px">(Vivino 등 검색용, 비우면 자동으로 바꿔요)</em></span><input name="nameEn" value="${esc(w.nameEn)}" placeholder="예: Montes Alpha Cabernet Sauvignon" autocapitalize="words"></label>
+      <div class="two"><label class="f"><span>생산 국가</span><input name="country" list="cl" value="${esc(w.country)}" placeholder="칠레"></label>
+        <label class="f"><span>지역</span><input name="region" value="${esc(w.region)}" placeholder="콜차구아 밸리"></label></div>
+      <datalist id="cl">${COUNTRIES.map(c => `<option value="${c}">`).join('')}</datalist>
+      <div class="two"><label class="f"><span>품종</span><input name="grape" list="gl" value="${esc(w.grape)}" placeholder="카베르네 소비뇽"></label>
+        <label class="f"><span>빈티지</span><input name="vintage" inputmode="numeric" maxlength="4" value="${esc(w.vintage)}" placeholder="2021"></label></div>
+      <datalist id="gl">${GRAPES.map(g => `<option value="${g.n}">`).join('')}</datalist>
+      <div class="two"><label class="f"><span>구매 날짜</span><input name="buyDate" type="date" value="${esc(w.buyDate || today())}"></label>
+        <label class="f"><span>산 가격 (원)</span><input name="price" inputmode="numeric" value="${esc(w.price)}" placeholder="35000"></label></div>
+      <div class="two"><label class="f"><span>구매처</span><input name="shop" value="${esc(w.shop)}" placeholder="와인샵, 마트…"></label>
+        <label class="f"><span>수량 (병)</span><input name="qty" type="number" min="0" inputmode="numeric" value="${esc(w.qty ?? 1)}"></label></div>
+      <label class="f"><span>메모</span><input name="memo" value="${esc(w.memo)}" placeholder="선물 받음, 기념일에 열기 등"></label>
+      <p class="note" style="margin:-4px 2px 12px">보관 기간은 구매 날짜부터 자동으로 세어드려요.</p>
+      <button class="btn block">${isNew ? '셀러에 넣기' : '저장'}</button>
+    </form>`, { onMount(p){
+      const f = p.querySelector('#wf');
+      const redraw = () => { p.querySelector('#wf-b').innerHTML = bottle({name:f.name.value, vintage:f.vintage.value, type, photo, neckPhoto}, 'b'); };
+      p.querySelectorAll('#wf-type button').forEach(b => b.onclick = () => { type = b.dataset.v; p.querySelectorAll('#wf-type button').forEach(x => x.classList.toggle('on', x === b)); redraw(); });
+      f.name.oninput = f.vintage.oninput = redraw;
+      const rm = p.querySelector('#wf-rm'); if(rm) rm.onclick = () => { photo = ''; neckPhoto = ''; rm.remove(); redraw(); };
+      p.querySelector('#wf-ph').onclick = async () => {
+        const file = await pickFile('image/*'); if(!file) return;
+        const vals = Object.fromEntries(new FormData(f)); vals.type = type;
+        cropLabel(file, (url, nurl) => { wineForm({...w, ...vals, photo:url, neckPhoto:nurl, price:vals.price, qty:vals.qty}, file); if(SAMPLE && !vals.name) readLabel(file, false); });
+      };
+      const ab = p.querySelector('#wf-aibtn');
+      if(ab) ab.onclick = () => { if(!SAMPLE){ toast('이 화면에서는 AI를 쓸 수 없어요'); return; } readLabel(srcFile || dataUrlToBlob(photo), true); };
+      f.onsubmit = e => { e.preventDefault(); const d = Object.fromEntries(new FormData(f));
+        const item = {...w, ...d, type, photo, neckPhoto, id: w.id || uid(), price: String(d.price).replace(/[^\d]/g, ''), qty: Math.max(0, parseInt(d.qty, 10) || 0), createdAt: w.createdAt || today()};
+        Store.put('wines', item); closeSheet(); render(); toast(isNew ? '셀러에 넣었어요 🍷' : '저장했어요'); };
+  }});
+}
+async function readLabel(file, overwrite){
+  const note = $('#wf-ai'), ab = $('#wf-aibtn'); if(note) note.innerHTML = '<span class="spin"></span>AI가 라벨을 읽는 중…'; if(ab) ab.disabled = true;
+  try{
+    const img = await loadImg(file); const blob = await shrink(img, 1280);
+    const txt = await ask(`이 와인 라벨 사진을 보고 다음 JSON만 출력하세요. 모르는 값은 빈 문자열.
+{"name":"한국어로 흔히 부르는 와인 이름(생산자+와인명)","nameEn":"라벨에 적힌 원어/영문 이름(생산자+와인명)","country":"생산 국가(한국어)","region":"지역(한국어)","grape":"주 품종(한국어)","vintage":"4자리 연도","type":"red|white|rose|sparkling|dessert 중 하나"}`, {images:[blob], modelTier:'quick'});
+    const m = txt.match(/\{[\s\S]*\}/); if(!m) throw 0; const d = JSON.parse(m[0]);
+    const f = $('#wf'); if(!f) return;
+    for(const k of ['name','nameEn','country','region','grape','vintage']) if(d[k] && (overwrite || !f[k].value)) f[k].value = d[k];
+    if(d.type){ const b = document.querySelector(`#wf-type button[data-v="${d.type}"]`); if(b) b.click(); }
+    f.name.dispatchEvent(new Event('input'));
+    const n = $('#wf-ai'); if(n) n.textContent = 'AI가 라벨을 읽어 채웠어요. 틀린 곳이 있으면 고쳐주세요.';
+  }catch(e){ const n = $('#wf-ai'); if(n) n.textContent = e && e.code ? aiErr(e) : '라벨을 읽지 못했어요. 라벨이 정면으로 크게 나온 사진으로 다시 해보세요.'; }
+  const b2 = $('#wf-aibtn'); if(b2) b2.disabled = false;
+}
+
+/* ================= TAB 2: tasting notes ================= */
+const notesUI = { f:'all' };
+const stars = (r, num = true) => `<span class="stars" aria-label="${+r || 0}점">★★★★★<span class="sf" style="width:${(+r || 0) * 20}%">★★★★★</span></span>${num && r ? `<span class="rv">${(+r).toFixed(1)}</span>` : ''}`;
+const rebuyBadge = v => v === undefined || v === null || v === '' ? '' : `<span class="rb r${v}">${REBUY[v].n}</span>`;
+function viewNotes(){
+  const all = tastings();
+  const list = all.filter(t => notesUI.f === 'all' || String(t.rebuy) === notesUI.f);
+  const avg = all.length ? (all.reduce((s, t) => s + (+t.rating || 0), 0) / all.length).toFixed(1) : '–';
+  return `${header('시음 노트', '마신 와인의 맛을 기억해두는 곳')}
+  ${all.length ? `<div class="stats" style="margin-bottom:14px"><div><b>${all.length}잔</b><span>기록</span></div><div><b>★ ${avg}</b><span>평균 별점</span></div><div><b>${all.filter(t => t.rebuy == 2).length}</b><span>완전 강추</span></div></div>
+  <div class="chips scroll" style="margin-bottom:12px"><button class="chip ${notesUI.f === 'all' ? 'on' : ''}" data-act="nf" data-v="all">전체</button>${REBUY.slice().reverse().map(r => `<button class="chip ${notesUI.f === String(r.v) ? 'on' : ''}" data-act="nf" data-v="${r.v}">${r.n}</button>`).join('')}</div>
+  ${list.map(t => { const w = S().wines[t.wineId] || t.wine || {};
+    return `<button class="item" data-act="tasting" data-id="${t.id}">${bottle(w, 'b')}<div><div class="t">${esc(w.name || '이름 없는 와인')}${w.vintage ? ' <span class="muted" style="font-weight:500">' + esc(w.vintage) + '</span>' : ''}</div>
+      <div>${stars(t.rating)}${rebuyBadge(t.rebuy)}</div><div class="s">${esc(t.date)}${t.oneLine ? ' · ' + esc(t.oneLine) : ''}</div>
+      <div class="mini">${['sweet','acid','tannin','body'].map(k => `<div>${TRAITS.find(x => x.k === k).n}<i><b style="width:${(t.traits?.[k] || 0) * 20}%"></b></i></div>`).join('')}</div></div></button>`; }).join('') || '<div class="empty">이 조건의 노트가 없어요</div>'}
+  <button class="btn block" style="margin-top:6px" data-act="new-tasting">＋ 시음 노트 쓰기</button>`
+  : `<div class="card empty"><div style="font-size:42px">🍷</div><div class="big">아직 기록한 와인이 없어요</div>
+    <p>셀러에서 와인을 고르고 ‘마셨어요’를 누르거나, 밖에서 마신 와인도 바로 적을 수 있어요.</p>
+    <button class="btn block" data-act="new-tasting">＋ 시음 노트 쓰기</button></div>`}`;
+}
+function pickWineForTasting(){
+  const ws = inCellar();
+  openSheet(`<h2>어떤 와인을 마셨나요?</h2>
+    ${ws.length ? `<div class="list-h" style="margin-top:0">내 셀러에서 고르기</div>${ws.map(w => itemRow(w, [esc(w.country || ''), w.buyDate ? heldText(w.buyDate, '째 보관') : ''].filter(Boolean).join(' · '), 'drink')).join('')}` : ''}
+    <button class="btn ${ws.length ? 'soft' : ''} block" style="margin-top:8px" data-act="tasting-free">셀러에 없는 와인 (레스토랑·모임 등)</button>`);
+}
+function tastingForm(t = {}, wine = null){
+  const isNew = !t.id;
+  const w = wine || S().wines[t.wineId] || t.wine || {};
+  const tr = {...Object.fromEntries(TRAITS.map(x => [x.k, 3])), ...(w.type && w.type !== 'red' ? {tannin:0} : {}), ...(t.traits || {})};
+  let rating = t.rating || 0, rebuy = t.rebuy ?? null, texture = t.texture || [], aromas = t.aromas || [];
+  const free = !w.id;
+  openSheet(`<h2>${isNew ? '시음 노트' : '시음 노트 수정'}</h2>
+    <div class="hero" style="grid-template-columns:auto minmax(0,1fr);margin-bottom:12px">${bottle(w, 'b').replace('class="b"', 'class="b" style="width:46px"')}<div>
+      ${free ? `<label class="f" style="margin:0"><span>와인 이름 *</span><input id="tf-name" value="${esc(w.name)}" placeholder="마신 와인 이름"></label>` : `<div class="t" style="font-size:18px">${esc(w.name)}</div><div class="muted small">${[w.vintage, w.country, w.grape].filter(Boolean).map(esc).join(' · ')}</div>`}</div></div>
+    ${free ? `<div class="two"><label class="f"><span>품종</span><input id="tf-grape" list="gl2" value="${esc(w.grape)}"></label><label class="f"><span>가격 (원)</span><input id="tf-price" inputmode="numeric" value="${esc(w.price)}"></label></div><datalist id="gl2">${GRAPES.map(g => `<option value="${g.n}">`).join('')}</datalist>` : ''}
+    <form id="tf">
+      <label class="f"><span>마신 날</span><input name="date" type="date" value="${esc(t.date || today())}"></label>
+      <div class="muted small">별점</div>
+      <div class="starin" id="tf-st"><div class="sw">${stars(rating, false)}<div class="hits">${[...Array(10)].map((_, i) => `<button type="button" data-v="${(i + 1) / 2}" aria-label="${(i + 1) / 2}점"></button>`).join('')}</div></div><b id="tf-sv">${rating ? rating.toFixed(1) + '점' : '0점'}</b></div>
+      <p class="note" style="margin:-10px 2px 12px">별의 왼쪽 반을 누르면 0.5점, 오른쪽을 누르면 1점이에요.</p>
+      <div class="muted small" style="margin-bottom:4px">재구매 의사</div>
+      <div class="seg" id="tf-rb">${REBUY.map(r => `<button type="button" data-v="${r.v}" class="${rebuy === r.v ? 'on' : ''}">${r.n}</button>`).join('')}</div>
+      <div class="list-h" style="margin-top:4px">맛의 특징</div>
+      ${TRAITS.map(x => `<div class="sl"><div class="h"><span>${x.n}</span><em id="tv-${x.k}">${tr[x.k]}</em></div><input type="range" name="${x.k}" min="0" max="5" step="1" value="${tr[x.k]}"><div class="ends"><span>${x.a}</span><span>${x.b}</span></div></div>`).join('')}
+      <div class="muted small" style="margin:4px 0 6px">텍스처 (질감)</div>
+      <div class="chips" id="tf-tx" style="margin-bottom:14px">${TEXTURES.map(x => `<button type="button" class="chip ${texture.includes(x) ? 'on' : ''}" data-v="${x}">${x}</button>`).join('')}</div>
+      <div class="muted small" style="margin:4px 0 6px">느껴진 향</div>
+      <div class="chips" id="tf-ar" style="margin-bottom:14px">${AROMAS.map(x => `<button type="button" class="chip ${aromas.includes(x) ? 'on' : ''}" data-v="${x}">${x}</button>`).join('')}</div>
+      <label class="f"><span>한 줄 평</span><input name="oneLine" maxlength="40" value="${esc(t.oneLine)}" placeholder="예: 삼겹살이랑 최고"></label>
+      <div class="two"><label class="f"><span>함께한 음식</span><input name="food" value="${esc(t.food)}"></label><label class="f"><span>어디서·누구와</span><input name="with" value="${esc(t.with)}"></label></div>
+      <label class="f"><span>자세한 소감</span><textarea name="memo" placeholder="첫 향, 시간이 지나며 달라진 점, 기억하고 싶은 것">${esc(t.memo)}</textarea></label>
+      <button class="btn block">${isNew ? '노트 저장' : '저장'}</button>
+    </form>`, { onMount(p){
+      const f = p.querySelector('#tf');
+      p.querySelectorAll('#tf-st .hits button').forEach(b => b.onclick = () => { rating = +b.dataset.v; p.querySelector('#tf-st .sf').style.width = rating * 20 + '%'; p.querySelector('#tf-sv').textContent = rating.toFixed(1) + '점'; });
+      p.querySelectorAll('#tf-rb button').forEach(b => b.onclick = () => { rebuy = +b.dataset.v; p.querySelectorAll('#tf-rb button').forEach(x => x.classList.toggle('on', x === b)); });
+      const multi = (sel, arr) => p.querySelectorAll(sel + ' button').forEach(b => b.onclick = () => { const v = b.dataset.v, i = arr.indexOf(v); i < 0 ? arr.push(v) : arr.splice(i, 1); b.classList.toggle('on', i < 0); });
+      multi('#tf-tx', texture); multi('#tf-ar', aromas);
+      TRAITS.forEach(x => f[x.k].oninput = () => p.querySelector('#tv-' + x.k).textContent = f[x.k].value);
+      f.onsubmit = e => { e.preventDefault();
+        if(!rating){ toast('별점을 골라주세요'); return; }
+        if(rebuy === null){ toast('재구매 의사를 골라주세요'); return; }
+        const d = Object.fromEntries(new FormData(f));
+        const traits = Object.fromEntries(TRAITS.map(x => [x.k, +d[x.k]]));
+        let wineSnap = null;
+        if(free){ const nm = p.querySelector('#tf-name').value.trim(); if(!nm){ toast('와인 이름을 적어주세요'); return; }
+          wineSnap = {name:nm, grape:p.querySelector('#tf-grape').value.trim(), price:p.querySelector('#tf-price').value.replace(/[^\d]/g, ''), type:'red'}; }
+        const item = {id: t.id || uid(), wineId: w.id || null, wine: wineSnap || (w.id ? {name:w.name, vintage:w.vintage, grape:w.grape, country:w.country, price:w.price, type:w.type} : t.wine),
+          date:d.date, rating, rebuy, traits, texture, aromas, oneLine:d.oneLine, food:d.food, with:d.with, memo:d.memo};
+        Store.put('tastings', item);
+        if(isNew && w.id && S().wines[w.id]){ const ww = {...S().wines[w.id]}; ww.qty = Math.max(0, (+ww.qty || 1) - 1); if(ww.qty === 0) ww.finishDate = d.date; Store.put('wines', ww); }
+        closeSheet(); location.hash = 'notes'; render(); toast('기록했어요. 건배! 🥂');
+      };
+  }});
+}
+function radar(tr){
+  const n = TRAITS.length, cx = 160, cy = 132, R = 92;
+  const pt = (i, v) => { const a = -Math.PI / 2 + i * 2 * Math.PI / n; return [cx + Math.cos(a) * R * v / 5, cy + Math.sin(a) * R * v / 5]; };
+  const ring = v => TRAITS.map((_, i) => pt(i, v).join(',')).join(' ');
+  return `<svg class="radar" viewBox="0 0 320 264" role="img" aria-label="맛 특징 그래프">
+    ${[1, 2, 3, 4, 5].map(v => `<polygon points="${ring(v)}" fill="none" stroke="var(--line)"/>`).join('')}
+    ${TRAITS.map((_, i) => { const [x, y] = pt(i, 5); return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="var(--line)"/>`; }).join('')}
+    <polygon points="${TRAITS.map((x, i) => pt(i, tr[x.k] || 0).join(',')).join(' ')}" fill="color-mix(in srgb,var(--wine) 30%,transparent)" stroke="var(--wine)" stroke-width="2"/>
+    ${TRAITS.map((x, i) => { const [lx, ly] = pt(i, 6.3); return `<text x="${lx}" y="${ly + 4}" text-anchor="middle" font-size="12.5" fill="var(--muted)" font-family="IBM Plex Sans KR,sans-serif">${x.n} ${tr[x.k] || 0}</text>`; }).join('')}
+  </svg>`;
+}
+function tastingDetail(t){
+  const w = S().wines[t.wineId] || t.wine || {};
+  openSheet(`<div class="hero">${bottle(w, 'b')}<div><div class="muted small">${esc(t.date)} 시음</div><div class="t">${esc(w.name || '')}</div>
+      <div><span style="font-size:20px">${stars(t.rating)}</span></div><div style="margin-top:4px">${rebuyBadge(t.rebuy).replace('margin-left:6px', '')}</div></div></div>
+    ${t.oneLine ? `<div class="card" style="font-family:var(--serif);font-size:18px">“${esc(t.oneLine)}”</div>` : ''}
+    <div class="card">${radar(t.traits || {})}</div>
+    ${(t.texture || []).length || (t.aromas || []).length ? `<div class="card">${(t.texture || []).length ? `<div class="muted small">텍스처</div><div class="tags" style="margin:4px 0 10px">${t.texture.map(x => `<span class="tag">${esc(x)}</span>`).join('')}</div>` : ''}
+      ${(t.aromas || []).length ? `<div class="muted small">향</div><div class="tags" style="margin-top:4px">${t.aromas.map(x => `<span class="tag">${esc(x)}</span>`).join('')}</div>` : ''}</div>` : ''}
+    ${t.food || t.with || t.memo ? `<dl class="kv card">${t.food ? `<dt>음식</dt><dd>${esc(t.food)}</dd>` : ''}${t.with ? `<dt>함께</dt><dd>${esc(t.with)}</dd>` : ''}${t.memo ? `<dt>소감</dt><dd style="white-space:pre-wrap">${esc(t.memo)}</dd>` : ''}</dl>` : ''}
+    <div class="acts"><button class="btn" data-act="learn-wine" data-id="${t.id}">와인 공부</button><button class="btn soft" data-act="edit-tasting" data-id="${t.id}">수정</button><button class="btn soft" data-act="del-tasting" data-id="${t.id}">삭제</button></div>`);
+}
+
+/* ================= 영문 이름 (해외 사이트 검색용) ================= */
+const hasKo = s => /[가-힣]/.test(s || '');
+function enCached(name){
+  if(!name) return '';
+  if(!hasKo(name)) return name;
+  const k = norm(name);
+  const w = wines().find(x => norm(x.name) === k && x.nameEn); if(w) return w.nameEn;
+  const m = S().market[mkey(name)]; if(m && m.en) return m.en;
+  const kb = KB_WINES.find(x => norm(x.n) === k); if(kb) return kb.en;
+  return '';
+}
+/* 로그인 없이도 쓰는 한글→영문 변환: 와인 용어·생산자·품종·산지 사전 + 외래어 발음 표기 */
+const KO_EN_RAW = `와인=|샤토=Chateau|샤또=Chateau|도멘=Domaine|도메인=Domaine|메종=Maison|클로=Clos|그랑크뤼=Grand Cru|그랑끄뤼=Grand Cru|프리미에크뤼=Premier Cru|프르미에크뤼=Premier Cru|리저브=Reserve|리제르브=Reserve|리제르바=Riserva|리세르바=Riserva|레세르바=Reserva|그란레세르바=Gran Reserva|크리안사=Crianza|브뤼=Brut|브룻=Brut|브뤼트=Brut|로제=Rose|블랑=Blanc|루즈=Rouge|빈야드=Vineyard|빈야즈=Vineyards|셀렉티드=Selected|에스테이트=Estate|셀렉션=Selection|퀴베=Cuvee|뀌베=Cuvee|엑스트라=Extra|드라이=Dry|스위트=Sweet|레드=Red|화이트=White|빈=Bin|넘버=No|클래식=Classic|클라시코=Classico|수페리오레=Superiore|그랑=Grand|그란=Gran|비에이유비뉴=Vieilles Vignes|올드바인=Old Vine|싱글빈야드=Single Vineyard|디=di|델=del|델라=della|드=de|뒤=du|데=des|라=La|르=Le|레=Les|엘=El|로스=Los|이=y|산=San|생=Saint|세인트=Saint|앤=&|
+카베르네소비뇽=Cabernet Sauvignon|까베르네소비뇽=Cabernet Sauvignon|카베르네쇼비뇽=Cabernet Sauvignon|까베르네쇼비뇽=Cabernet Sauvignon|카베르네=Cabernet|까베르네=Cabernet|소비뇽=Sauvignon|쇼비뇽=Sauvignon|카베르네프랑=Cabernet Franc|메를로=Merlot|멀롯=Merlot|메롯=Merlot|멀로=Merlot|피노누아=Pinot Noir|피노누아르=Pinot Noir|삐노누아=Pinot Noir|피노그리지오=Pinot Grigio|피노그리=Pinot Gris|피노=Pinot|시라=Syrah|쉬라=Syrah|쉬라즈=Shiraz|시라즈=Shiraz|말벡=Malbec|말백=Malbec|산지오베제=Sangiovese|산조베제=Sangiovese|네비올로=Nebbiolo|네비뇰로=Nebbiolo|템프라니요=Tempranillo|템프라닐로=Tempranillo|뗌쁘라니요=Tempranillo|가르나차=Garnacha|그르나슈=Grenache|그르나쉬=Grenache|진판델=Zinfandel|프리미티보=Primitivo|카르메네르=Carmenere|까르메네르=Carmenere|피노타지=Pinotage|몬테풀치아노=Montepulciano|바르베라=Barbera|돌체토=Dolcetto|네로다볼라=Nero d'Avola|샤르도네=Chardonnay|샤도네이=Chardonnay|샤르도네이=Chardonnay|소비뇽블랑=Sauvignon Blanc|쇼비뇽블랑=Sauvignon Blanc|리슬링=Riesling|리즐링=Riesling|모스카토=Moscato|모스까또=Moscato|뮈스카=Muscat|게뷔르츠트라미너=Gewurztraminer|비오니에=Viognier|슈냉블랑=Chenin Blanc|세미용=Semillon|알바리뇨=Albarino|베르멘티노=Vermentino|그뤼너펠트리너=Gruner Veltliner|토론테스=Torrontes|프로세코=Prosecco|카바=Cava|까바=Cava|샴페인=Champagne|샹파뉴=Champagne|
+보르도=Bordeaux|부르고뉴=Bourgogne|버건디=Burgundy|샤블리=Chablis|상세르=Sancerre|론=Rhone|꼬뜨뒤론=Cotes du Rhone|코트뒤론=Cotes du Rhone|샤토뇌프뒤파프=Chateauneuf-du-Pape|알자스=Alsace|루아르=Loire|메독=Medoc|마고=Margaux|뽀이악=Pauillac|포이약=Pauillac|뽀이약=Pauillac|생테밀리옹=Saint-Emilion|포므롤=Pomerol|생줄리앙=Saint-Julien|페삭레오냥=Pessac-Leognan|소테른=Sauternes|보졸레=Beaujolais|키안티=Chianti|끼안티=Chianti|바롤로=Barolo|바르바레스코=Barbaresco|브루넬로=Brunello|몬탈치노=Montalcino|아마로네=Amarone|발폴리첼라=Valpolicella|토스카나=Toscana|피에몬테=Piemonte|랑게=Langhe|아스티=Asti|모스카토다스티=Moscato d'Asti|리오하=Rioja|리베라델두에로=Ribera del Duero|프리오라트=Priorat|나파밸리=Napa Valley|나파=Napa|밸리=Valley|소노마=Sonoma|멘도사=Mendoza|멘도자=Mendoza|마이포=Maipo|콜차구아=Colchagua|바로사=Barossa|말보로=Marlborough|모젤=Mosel|
+몬테스=Montes|알파=Alpha|카테나=Catena|까테나=Catena|자파타=Zapata|사파타=Zapata|루이자도=Louis Jadot|루이라뚜르=Louis Latour|루이라투르=Louis Latour|조셉드루앵=Joseph Drouhin|조셉드루엥=Joseph Drouhin|기갈=Guigal|샤푸티에=Chapoutier|폴자불레=Paul Jaboulet|펜폴즈=Penfolds|그랜지=Grange|옐로우테일=Yellow Tail|옐로테일=Yellow Tail|제이콥스크릭=Jacob's Creek|클라우디베이=Cloudy Bay|킴크로포드=Kim Crawford|빌라마리아=Villa Maria|오이스터베이=Oyster Bay|로버트몬다비=Robert Mondavi|몬다비=Mondavi|켄달잭슨=Kendall-Jackson|베린저=Beringer|케이머스=Caymus|실버오크=Silver Oak|스태그스립=Stag's Leap|오퍼스원=Opus One|덕혼=Duckhorn|디코이=Decoy|조쉬=Josh|크라임스=Crimes|아포틱=Apothic|산페드로=San Pedro|콘차이토로=Concha y Toro|카시예로델디아블로=Casillero del Diablo|까시예로델디아블로=Casillero del Diablo|디아블로=Diablo|돈멜초=Don Melchor|알마비바=Almaviva|에라주리즈=Errazuriz|에라쥬리즈=Errazuriz|산타리타=Santa Rita|운두라가=Undurraga|트라피체=Trapiche|안티노리=Antinori|티냐넬로=Tignanello|사시까이아=Sassicaia|사시카이아=Sassicaia|오르넬라이아=Ornellaia|솔라이아=Solaia|루피노=Ruffino|두칼레=Ducale|반피=Banfi|가야=Gaja|폰타나프레다=Fontanafredda|마르케시=Marchesi|비에티=Vietti|프레스코발디=Frescobaldi|카스텔로=Castello|마르케스데리스칼=Marques de Riscal|캄포비에호=Campo Viejo|토레스=Torres|베가시실리아=Vega Sicilia|우니코=Unico|프레시넷=Freixenet|코르동네그로=Cordon Negro|모엣샹동=Moet & Chandon|모엣앤샹동=Moet & Chandon|모에샹동=Moet & Chandon|모엣=Moet|샹동=Chandon|앵페리얼=Imperial|임페리얼=Imperial|뵈브클리코=Veuve Clicquot|돔페리뇽=Dom Perignon|크룩=Krug|볼랭저=Bollinger|테탱저=Taittinger|떼땅져=Taittinger|루이로드레=Louis Roederer|크리스탈=Cristal|페리에주에=Perrier-Jouet|로랑페리에=Laurent-Perrier|파이퍼하이직=Piper-Heidsieck|무통로칠드=Mouton Rothschild|무똥로칠드=Mouton Rothschild|무통로쉴드=Mouton Rothschild|라피트로칠드=Lafite Rothschild|라피트로쉴드=Lafite Rothschild|라피트=Lafite|라투르=Latour|라뚜르=Latour|오브리옹=Haut-Brion|페트뤼스=Petrus|슈발블랑=Cheval Blanc|탈보=Talbot|로마네콩티=Romanee-Conti|르로아=Leroy|닥터루젠=Dr. Loosen|닥터엘=Dr. L|위스퍼링엔젤=Whispering Angel|미라발=Miraval|간치아=Gancia|바이라=Vajra|마르티니=Martini|트림바크=Trimbach|칼로로시=Carlo Rossi|칼로로씨=Carlo Rossi|베어풋=Barefoot|그랜트버지=Grant Burge|울프블라스=Wolf Blass|하디스=Hardys|투핸즈=Two Hands|레이크체일리=Lake Chalice|빌라=Villa|엠=M|로쏘=Rosso|로소=Rosso|레오빌=Leoville|라스카스=Las Cases|에스쿠도로호=Escudo Rojo|비녜도=Vinedo|아드리아나=Adriana|그라프=Graves|코스데스투르넬=Cos d'Estournel|팔머=Palmer|린치바쥬=Lynch-Bages|랭쉬바쥬=Lynch-Bages|뒤크뤼보카이유=Ducru-Beaucaillou|피숑=Pichon|라랑드=Lalande|롱그빌=Longueville|베이첼=Beychevelle|글로리아=Gloria|칼롱세귀르=Calon-Segur|그뤼오라로즈=Gruaud-Larose|레드우드=Redwood|윌리엄페브르=William Fevre|도멘퐁소=Domaine Ponsot|파비=Pavie|안젤루스=Angelus|오존=Ausone|비노=Vino|로쏘디몬탈치노=Rosso di Montalcino|비노노빌레=Vino Nobile|몬테풀차노=Montepulciano|레미=Remy|투스칸=Tuscan|칠레=Chile|나바로=Navarro|블루넌=Blue Nun|무똥카데=Mouton Cadet|무통카데=Mouton Cadet|카데=Cadet|켄우드=Kenwood|조단=Jordan|프랑스=France`;
+const KO_EN = (() => { const m = new Map(); KO_EN_RAW.replace(/\n/g, '').split('|').forEach(p => { const [k, v] = p.split('='); if(k) m.set(k.replace(/\s/g, ''), v ?? ''); }); return m; })();
+const KO_EN_MAX = Math.max(...[...KO_EN.keys()].map(k => k.length));
+function roman(word){
+  const I = ['g','k','n','d','t','r','m','b','p','s','s','','j','j','ch','k','t','p','h'];
+  const V = ['a','e','ya','ye','o','e','yo','ye','o','wa','we','we','yo','u','wo','we','wi','yu','','ui','i'];
+  const F = ['','k','k','k','n','n','n','t','l','l','l','l','l','l','l','l','m','p','p','t','t','ng','t','t','k','t','p','t'];
+  let out = '', prevF = -1;
+  for(const ch of word){
+    const c = ch.charCodeAt(0) - 0xAC00;
+    if(c < 0 || c > 11171){ out += ch; prevF = -1; continue; }
+    const i = Math.floor(c / 588), v = Math.floor((c % 588) / 28), f = c % 28;
+    let ini = I[i];
+    if(i === 5 && prevF === 8) ini = 'l';          /* ㄹㄹ → l (클라 → kla) */
+    let vow = V[v];
+    if(v === 18 && i === 11) vow = 'eu';          /* 으 */
+    out += ini + vow + F[f]; prevF = f;
+  }
+  return out.replace(/ll(?=[aeiouy])/g, 'l');
+}
+const cap = w => w ? w[0].toUpperCase() + w.slice(1) : w;
+function dictEn(text){
+  const toks = String(text || '').trim().split(/\s+/).filter(Boolean);
+  const out = []; let guessed = false;
+  const piece = t => {
+    let k = 0; const res = [];
+    while(k < t.length){
+      if(!/[가-힣]/.test(t[k])){ let j = k; while(j < t.length && !/[가-힣]/.test(t[j])) j++; res.push(t.slice(k, j)); k = j; continue; }
+      let hit = null;
+      for(let L = Math.min(KO_EN_MAX, t.length - k); L >= 2; L--){ const sub = t.slice(k, k + L); if(KO_EN.has(sub)){ hit = [sub, KO_EN.get(sub)]; break; } }
+      if(!hit && KO_EN.has(t[k]) && t.length === 1) hit = [t[k], KO_EN.get(t[k])];
+      if(hit){ if(hit[1]) res.push(hit[1]); k += hit[0].length; continue; }
+      let j = k + 1;
+      while(j < t.length && /[가-힣]/.test(t[j])){ let found = false; for(let L = Math.min(KO_EN_MAX, t.length - j); L >= 2; L--) if(KO_EN.has(t.slice(j, j + L))){ found = true; break; } if(found) break; j++; }
+      res.push(cap(roman(t.slice(k, j)))); guessed = true; k = j;
+    }
+    return res;
+  };
+  for(let i = 0; i < toks.length;){
+    let done = false;
+    for(let n = Math.min(4, toks.length - i); n >= 2; n--){ const key = toks.slice(i, i + n).join(''); if(KO_EN.has(key)){ const v = KO_EN.get(key); if(v) out.push(v); i += n; done = true; break; } }
+    if(done) continue;
+    const t = toks[i]; if(KO_EN.has(t)){ const v = KO_EN.get(t); if(v) out.push(v); } else out.push(...piece(t)); i++;
+  }
+  return { text: out.join(' ').replace(/\s+/g, ' ').trim(), guessed };
+}
+const enGuess = name => enCached(name) || (hasKo(name) ? dictEn(name).text : name) || name;
+
+const enPending = {};
+async function ensureEn(name){
+  const c = enCached(name); if(c) return c;
+  if(!SAMPLE) return '';
+  if(!enPending[name]) enPending[name] = (async () => {
+    try{
+      const txt = await ask(`다음 와인 이름을 Vivino·Wine-Searcher에서 검색할 영문(원어) 표기로 바꿔주세요. 생산자 + 와인명만, 빈티지·따옴표·설명 없이 한 줄로만 출력.
+와인: ${name}`, {modelTier:'quick'});
+      const en = (txt || '').split('\n').map(x => x.trim()).filter(Boolean)[0]?.replace(/^["'“]|["'”]$/g, '') || '';
+      if(en && !hasKo(en)) { saveEn(name, en); return en; }
+    }catch(e){}
+    return '';
+  })().finally(() => setTimeout(() => delete enPending[name], 0));
+  return enPending[name];
+}
+function saveEn(name, en){ const id = mkey(name); Store.put('market', {...(S().market[id] || {}), id, name, en}); }
+const searchUrl = {
+  /* Vivino는 주소로 검색 결과를 열 수 없어(자동완성 방식) 구글에서 Vivino 와인 페이지만 찾아 보여줌 */
+  vivino: q => 'https://www.google.com/search?q=' + encodeURIComponent('site:vivino.com ' + q),
+  ws: q => 'https://www.wine-searcher.com/find/' + encodeURIComponent(q).replace(/%20/g, '+'),
+  naver: q => 'https://search.shopping.naver.com/search/all?query=' + encodeURIComponent(q)
+};
+
+/* ================= TAB 3: stash (와인 쟁여놓기) ================= */
+const stashUI = { q:'', busy:false, msg:'' };
+const mkey = name => 'm' + hash(norm(name));
+function hash(str){ let h = 5381; for(const c of String(str)) h = ((h << 5) + h + c.codePointAt(0)) | 0; return (h >>> 0).toString(36); }
+const marketOf = name => S().market[mkey(name)] || null;
+const manwon = n => n >= 1e4 ? (Math.round(n / 1000) / 10).toLocaleString('ko-KR') + '만원' : Number(n).toLocaleString('ko-KR') + '원';
+const toNum = v => parseInt(String(v || '').replace(/[^\d]/g, ''), 10) || 0;
+
+/* 마셔본 와인: 같은 이름끼리 묶어 평균 별점 순 */
+function tastedGroups(){
+  const g = new Map();
+  for(const t of tastings()){
+    const w = S().wines[t.wineId] || t.wine || {}; const k = norm(w.name); if(!k) continue;
+    if(!g.has(k)) g.set(k, {key:k, wine:w, list:[]});
+    const it = g.get(k); it.list.push(t); if(!it.wine.photo && w.photo) it.wine = w;
+  }
+  return [...g.values()].map(x => {
+    const avg = x.list.reduce((s, t) => s + (+t.rating || 0), 0) / x.list.length;
+    const last = x.list.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
+    const paid = toNum(x.wine.price) || toNum((wines().find(w => norm(w.name) === x.key) || {}).price);
+    return {...x, avg, last, paid};
+  }).sort((a, b) => b.avg - a.avg || (b.last.date || '').localeCompare(a.last.date || ''));
+}
+
+const labelThumb = (w, h = 92) => w.photo ? `<img class="lt" src="${w.photo}" alt="" style="height:${h}px">` : bottle(w, 'b');
+function viewStash(){
+  const groups = tastedGroups();
+  return `${header('와인 쟁여놓기', '매장에서 라벨 보고 바로 찾고, 시세와 비교해요')}
+  ${stashUI.msg ? `<div class="card small">${stashUI.busy ? '<span class="spin"></span>' : ''}${esc(stashUI.msg)}</div>` : ''}
+
+  <div class="sec"><h2>마셔본 와인</h2><span class="muted small">별점 높은 순 · ${groups.length}종</span></div>
+  ${groups.length ? groups.map(x => `<button class="item st" data-act="stash-open" data-k="${esc(x.key)}">${labelThumb(x.wine)}<div>
+      <div class="t">${esc(x.wine.name)}${x.wine.vintage ? ' <span class="muted" style="font-weight:500">' + esc(x.wine.vintage) + '</span>' : ''}</div>
+      <div>${stars(Math.round(x.avg * 2) / 2)}${rebuyBadge(x.last.rebuy)}</div>
+      <div class="s">${x.list.length > 1 ? x.list.length + '번 마심 · ' : ''}${x.paid ? '내가 산 값 ' + manwon(x.paid) : '산 값 기록 없음'}</div>
+      ${x.last.oneLine ? `<div class="s" style="color:var(--ink)">“${esc(x.last.oneLine)}”</div>` : ''}</div></button>`).join('')
+  : `<div class="card small muted">시음 노트를 쓰면 여기에 별점 순으로 모여요. 매장에서 다시 살지 고를 때 꺼내 보세요.</div>`}
+
+  <div class="sec"><h2>안 마셔본 와인 찾기</h2></div>
+  <div class="card">
+    <input id="st-q" value="${esc(stashUI.q)}" placeholder="와인 이름 (한글이나 영문)" autocomplete="off" style="width:100%;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:10px 12px;min-height:44px">
+    <div class="note" id="st-en" style="min-height:20px">${stashUI.q ? '' : '한글로 써도 영문으로 바꿔서 검색해요.'}</div>
+    <label class="f" id="st-enw" style="display:none;margin:6px 0 0"><span>영문 검색어 · 틀리면 직접 고쳐주세요</span><input id="st-en-i" autocomplete="off" autocapitalize="words"></label>
+    <a class="btn block sbtn" id="st-ws" style="margin-top:8px" target="_blank" rel="noopener">Wine-Searcher에서 검색 ↗</a>
+    <div class="two" style="margin-top:8px">
+      <a class="btn soft sm sbtn" id="st-nv" target="_blank" rel="noopener">네이버 최저가 검색 ↗</a>
+      <a class="btn soft sm sbtn" id="st-vv" target="_blank" rel="noopener">Vivino에서 검색 ↗</a></div>
+    <p class="note" style="margin-top:8px">Vivino는 구글에서 그 와인의 Vivino 페이지를 찾아 보여줘요.</p>
+  </div>`;
+}
+function wireStashSearch(){
+  const i = $('#st-q'); if(!i) return;
+  const ws = $('#st-ws'), nv = $('#st-nv'), vv = $('#st-vv'), info = $('#st-en'), enw = $('#st-enw'), eni = $('#st-en-i');
+  let timer = null, seq = 0, edited = false;
+  const apply = () => {
+    const raw = i.value.trim(), on = !!raw;
+    [ws, nv, vv].forEach(a => a.classList.toggle('off', !on));
+    if(!on){ [ws, nv, vv].forEach(a => a.removeAttribute('href')); return; }
+    const q = hasKo(raw) ? (eni.value.trim() || raw) : raw;
+    ws.href = searchUrl.ws(q); vv.href = searchUrl.vivino(q); nv.href = searchUrl.naver(raw);
+  };
+  const update = () => {
+    const raw = i.value.trim(); stashUI.q = raw; const my = ++seq; clearTimeout(timer); edited = false;
+    if(!raw){ enw.style.display = 'none'; info.textContent = '한글로 써도 영문으로 바꿔서 검색해요.'; apply(); return; }
+    if(!hasKo(raw)){ enw.style.display = 'none'; info.textContent = ''; apply(); return; }
+    enw.style.display = '';
+    const c = enCached(raw);
+    if(c){ eni.value = c; info.textContent = ''; apply(); return; }
+    const g = dictEn(raw); eni.value = g.text; apply();
+    if(!SAMPLE){ info.textContent = g.guessed ? '사전에 없는 단어는 발음대로 바꿨어요. 정확하지 않으면 아래 영문을 고쳐주세요.' : ''; return; }
+    info.innerHTML = '<span class="spin"></span>AI로 더 정확한 영문 이름을 찾는 중…';
+    timer = setTimeout(async () => { const en = await ensureEn(raw); if(my !== seq) return;
+      info.textContent = ''; if(en && !edited){ eni.value = en; apply(); } }, 700);
+  };
+  i.oninput = update; i.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); i.blur(); } };
+  eni.oninput = () => { edited = true; apply(); };
+  eni.onchange = () => { const raw = i.value.trim(), v = eni.value.trim(); if(raw && v && hasKo(raw)) saveEn(raw, v); };
+  update();
+}
+
+function lightbox(src){ const lb = $('#lb'); lb.innerHTML = `<img src="${src}" alt="라벨 크게 보기"><span>탭하면 닫혀요</span>`; lb.classList.add('on'); }
+
+/* 라벨을 크게 + 시세 확인 링크 + (마셔봤다면) 내 평가 한눈에 */
+function stashSheet(name, opt = {}){
+  const g = tastedGroups().find(x => x.key === norm(name));
+  const cellarW = wines().find(x => norm(x.name) === norm(name));
+  const w = (g && g.wine.photo ? g.wine : null) || (cellarW && cellarW.photo ? cellarW : null) || (g ? g.wine : (opt.wine || cellarW || {name}));
+  const photo = w.photo || opt.photo || '';
+  const kb = KB_WINES.find(x => norm(x.n) === norm(name));
+  const enQ = enGuess(name);
+  const paid = g ? g.paid : toNum(cellarW && cellarW.price);
+  const traitBars = t => `<div class="grape" style="margin-top:10px">${TRAITS.map(x => `<div class="bar">${x.n} ${t.traits?.[x.k] ?? '–'}<i><b style="width:${(t.traits?.[x.k] || 0) * 20}%"></b></i></div>`).join('')}</div>`;
+  openSheet(`<h2 style="margin-bottom:2px">${esc(w.name || name)}</h2>
+    <div class="muted small" style="margin-bottom:12px">${esc([w.vintage, w.country || (kb && kb.c), w.grape || (kb && GRAPES.find(x => x.id === kb.g).n)].filter(Boolean).join(' · '))}</div>
+
+    ${photo ? `<div class="lbl"><button class="main" data-src="${photo}" aria-label="본 라벨 크게 보기"><img src="${photo}" alt="본 라벨"></button>
+        ${w.neckPhoto ? `<button class="neck" data-src="${w.neckPhoto}" aria-label="병목 라벨 크게 보기"><img src="${w.neckPhoto}" alt="병목 라벨"><span>병목 라벨</span></button>` : ''}</div>
+      <p class="note" style="text-align:center;margin:6px 0 14px">${opt.photo && !w.photo ? '방금 찍은 라벨이에요 · ' : ''}라벨을 누르면 크게 볼 수 있어요</p>`
+    : `<div class="lbl empty">${bottle(w, 'b')}<div><div style="font-weight:700">라벨 사진이 없어요</div>
+        <p class="small muted" style="margin:4px 0 10px">매장에서 구별하기 쉽게 라벨을 찍어두세요. Vivino에서 라벨 모양을 먼저 확인할 수도 있어요.</p>
+        ${cellarW ? `<button class="btn sm" data-act="edit-wine" data-id="${cellarW.id}">📷 라벨 사진 등록</button>` : ''}</div></div>`}
+
+    <div class="card" style="background:var(--wine);color:#fff;border:none">
+      <div style="font-family:var(--serif);font-size:19px;font-weight:700">시세 확인</div>
+      <p style="font-size:14px;opacity:.9;margin:4px 0 12px">Vivino에서 평균 가격과 라벨을 확인하고, 눈앞의 매장 가격과 비교해보세요. Vivino 버튼은 구글에서 이 와인의 Vivino 페이지를 찾아줘요. 맨 위 결과를 누르면 돼요.</p>
+      <a class="btn block" id="pv-vv" style="display:flex;align-items:center;justify-content:center;text-decoration:none;background:#fff;color:var(--wine);font-size:16px" href="${searchUrl.vivino(enQ)}" target="_blank" rel="noopener">Vivino에서 시세 보기 ↗</a>
+      <div class="two" style="margin-top:8px">
+        <a class="btn sm" style="display:flex;align-items:center;justify-content:center;text-decoration:none;background:rgba(255,255,255,.16);color:#fff" href="${searchUrl.naver(name)}" target="_blank" rel="noopener">네이버 최저가 ↗</a>
+        <a class="btn sm" style="display:flex;align-items:center;justify-content:center;text-decoration:none;background:rgba(255,255,255,.16);color:#fff" id="pv-ws" href="${searchUrl.ws(enQ)}" target="_blank" rel="noopener">Wine-Searcher ↗</a></div>
+      <div id="pv-en" style="font-size:12.5px;opacity:.9;margin-top:10px">${hasKo(name) ? (enCached(name) ? `영문 검색어: <b>${esc(enCached(name))}</b>` : SAMPLE ? '<span class="spin"></span>영문 이름으로 바꾸는 중…' : `영문 검색어(자동 변환): <b>${esc(enQ)}</b>`) : ''}
+        ${hasKo(name) ? ` <button class="btn sm" id="pv-ed" style="min-height:28px;padding:2px 9px;font-size:12px;background:rgba(255,255,255,.18);color:#fff;margin-left:4px">수정</button>` : ''}</div>
+      <form id="pv-f" style="display:none;margin-top:8px" class="row"><input id="pv-i" value="${esc(enQ)}" placeholder="영문 이름 (예: Catena Malbec)" style="flex:1;border:none;border-radius:10px;padding:8px 10px;min-height:40px;color:#24161B"><button class="btn sm" style="background:#fff;color:var(--wine)">저장</button></form>
+      ${paid ? `<div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.25);display:flex;justify-content:space-between;font-size:14px"><span style="opacity:.85">내가 전에 산 가격</span><b style="font-size:17px">${won(paid)}</b></div>` : ''}
+    </div>
+
+    ${g ? `<div class="card"><div class="row between"><div style="font-weight:700">내 평가</div><span class="muted small">${g.list.length}번 마심 · 최근 ${esc(g.last.date)}</span></div>
+      <div style="margin-top:6px;font-size:20px">${stars(Math.round(g.avg * 2) / 2)}${rebuyBadge(g.last.rebuy)}</div>
+      ${g.last.oneLine ? `<div style="font-family:var(--serif);font-size:17px;margin-top:8px">“${esc(g.last.oneLine)}”</div>` : ''}
+      ${traitBars(g.last)}
+      ${(g.last.texture || []).length || (g.last.aromas || []).length ? `<div class="tags" style="margin-top:12px">${[...(g.last.texture || []), ...(g.last.aromas || [])].map(x => `<span class="tag">${esc(x)}</span>`).join('')}</div>` : ''}
+      ${g.last.food ? `<div class="small muted" style="margin-top:10px">함께한 음식: ${esc(g.last.food)}</div>` : ''}
+      ${g.last.memo ? `<div class="small" style="margin-top:6px;white-space:pre-wrap">${esc(g.last.memo)}</div>` : ''}
+      <button class="btn soft sm" style="margin-top:12px" data-act="tasting" data-id="${g.last.id}">시음 노트 전체 보기</button></div>`
+    : `<div class="card"><div style="font-weight:700">아직 안 마셔본 와인이에요</div>
+      ${kb ? `<p class="small" style="margin:6px 0 0">${GRAPES.find(x => x.id === kb.g).tip}</p>` : ''}</div>`}
+    <button class="btn soft block" id="st-buy">🛒 샀어요 · 셀러에 넣기</button>`,
+  { onMount(p){
+    p.querySelectorAll('.lbl button[data-src]').forEach(b => b.onclick = () => lightbox(b.dataset.src));
+    const applyEn = en => { p.querySelector('#pv-vv').href = searchUrl.vivino(en); p.querySelector('#pv-ws').href = searchUrl.ws(en);
+      const box = p.querySelector('#pv-en'); const ed = p.querySelector('#pv-ed'); box.innerHTML = `영문 검색어: <b>${esc(en)}</b> `; if(ed) box.appendChild(ed); p.querySelector('#pv-i').value = en; };
+    const ed = p.querySelector('#pv-ed'); if(ed) ed.onclick = () => { const f = p.querySelector('#pv-f'); f.style.display = f.style.display === 'none' ? 'flex' : 'none'; };
+    const pf = p.querySelector('#pv-f'); pf.onsubmit = e => { e.preventDefault(); const v = p.querySelector('#pv-i').value.trim(); if(!v) return; saveEn(name, v); applyEn(v); pf.style.display = 'none'; toast('영문 이름을 저장했어요'); };
+    if(hasKo(name) && !enCached(name) && SAMPLE) ensureEn(name).then(en => { if(!p.isConnected || !p.querySelector('#pv-vv')) return;
+      if(en) applyEn(en); else if(enQ !== name) applyEn(enQ); else { const box = p.querySelector('#pv-en'); box.firstChild && (box.firstChild.textContent = ''); box.insertAdjacentText('afterbegin', '영문 변환 실패 · 수정을 눌러 직접 넣어주세요 '); } });
+    p.querySelector('#st-buy').onclick = () => {
+      const base = cellarW || w;
+      wineForm({name:base.name || name, country:base.country || (kb && kb.c) || '', region:base.region || '', grape:base.grape || (kb ? GRAPES.find(x => x.id === kb.g).n : ''),
+        vintage:base.vintage || '', type:base.type || (kb ? GRAPES.find(x => x.id === kb.g).t : 'red'), photo:base.photo || '', neckPhoto:base.neckPhoto || '', price:'', buyDate:today(), qty:1});
+    };
+  }});
+}
+
+async function labelFind(){
+  if(!SAMPLE){ toast('라벨 인식은 claude.ai 안에서만 쓸 수 있어요', 3000); return; }
+  const file = await pickFile('image/*'); if(!file) return;
+  stashUI.busy = true; stashUI.msg = 'AI가 라벨을 읽는 중…'; render();
+  try{
+    const img = await loadImg(file); const blob = await shrink(img, 1280);
+    const snap = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); });
+    const tasted = tastedGroups().map(x => x.wine.name).slice(0, 80);
+    const txt = await ask(`매장에서 찍은 와인 라벨 사진이에요. 다음 JSON만 출력하세요.
+{"name":"한국어로 흔히 부르는 와인 이름(생산자+와인명)","en":"라벨의 원어/영문 이름(생산자+와인명)","vintage":"4자리 연도 또는 빈 문자열","match":"아래 목록 중 같은 와인이 있으면 그 이름을 그대로, 없으면 빈 문자열"}
+내가 마셔본 와인 목록: ${JSON.stringify(tasted)}`, {images:[blob], modelTier:'default'});
+    const mm = txt.match(/\{[\s\S]*\}/); if(!mm) throw 0; const d = JSON.parse(mm[0]);
+    stashUI.busy = false;
+    if(d.en && !hasKo(d.en)) saveEn(d.match || d.name, d.en);
+    if(d.match && tastedGroups().some(x => x.wine.name === d.match)){ stashUI.msg = `‘${d.match}’ — 마셔본 와인이에요!`; render(); stashSheet(d.match, {photo:snap}); }
+    else if(d.name){ stashUI.msg = `‘${d.name}’ — 아직 안 마셔본 와인이에요.`; stashUI.q = d.name; render(); stashSheet(d.name, {photo:snap, wine:{name:d.name, vintage:d.vintage}}); }
+    else throw 0;
+  }catch(e){ stashUI.busy = false; stashUI.msg = e && e.code ? aiErr(e) : '라벨을 읽지 못했어요. 라벨이 정면으로 크게 나오게 다시 찍어주세요.'; render(); }
+}
+
+/* ================= TAB 4: learn ================= */
+const learnUI = { grape:null, band:'all', ai:'', aiBusy:false, q:'' };
+const norm = s => String(s || '').replace(/\s|[·&()]/g, '').toLowerCase();
+function triedGrapes(){
+  const set = new Set();
+  const all = tastings().map(t => (S().wines[t.wineId] || t.wine || {}).grape);
+  for(const g of all){ const n = norm(g); if(!n) continue; for(const G of GRAPES){ if(norm(G.n).split('/').some(p => p && (n.includes(p) || p.includes(n))) || n.includes(norm(G.en.split('/')[0]))) set.add(G.id); } }
+  return set;
+}
+const tastedNames = () => tastings().map(t => norm((S().wines[t.wineId] || t.wine || {}).name)).filter(Boolean);
+function viewLearn(){
+  const ts = tastings(), tried = triedGrapes(), names = tastedNames();
+  const seen = new Map(); ts.forEach(t => { const w = S().wines[t.wineId] || t.wine || {}; const k = norm(w.name); if(k && !seen.has(k)) seen.set(k, t); });
+  const g = GRAPES.find(x => x.id === learnUI.grape) || GRAPES.find(x => !tried.has(x.id)) || GRAPES[0];
+  learnUI.grape = g.id;
+  const ws = KB_WINES.filter(w => w.g === g.id && (learnUI.band === 'all' || w.b === learnUI.band));
+  const notTried = GRAPES.filter(x => !tried.has(x.id));
+  return `${header('와인 공부', '내가 마신 와인부터, 아직 못 마셔본 와인까지')}
+  <div class="sec" style="margin-top:4px"><h2>내가 마신 와인</h2><span class="muted small">${seen.size}종</span></div>
+  ${seen.size ? `<div class="hs">${[...seen.values()].map(t => { const w = S().wines[t.wineId] || t.wine || {}; return `<button data-act="learn-wine" data-id="${t.id}">${bottle(w)}<div class="nm">${esc(w.name)}</div><div class="small">${stars(t.rating)}</div></button>`; }).join('')}</div>
+    <p class="note" style="margin-top:0">와인을 누르면 전문가 리뷰를 찾아보는 링크를 볼 수 있어요.</p>`
+  : `<div class="card small muted">시음 노트를 쓰면 여기에 모여요. 그 와인의 평론가 점수와 해설을 바로 찾아볼 수 있어요.</div>`}
+
+  <div class="sec"><h2>품종별 와인 지도</h2><span class="muted small">${GRAPES.length - notTried.length}/${GRAPES.length} 마셔봄</span></div>
+  <div class="chips scroll" style="margin-bottom:12px">${GRAPES.map(x => `<button class="chip ${x.id === g.id ? 'on' : ''}" data-act="grape" data-v="${x.id}">${x.n}${tried.has(x.id) ? '<span class="ck">✓</span>' : ''}</button>`).join('')}</div>
+  <div class="card">
+    <div class="row between" style="align-items:flex-start"><div><div style="font-family:var(--serif);font-size:21px;font-weight:700">${g.n}</div><div class="muted small">${g.en} · ${typeOf(g.t).name}</div></div>
+      <span class="rb ${tried.has(g.id) ? 'r1' : 'r0'}" style="margin:4px 0 0">${tried.has(g.id) ? '마셔봤어요' : '아직 안 마셔봤어요'}</span></div>
+    <p style="margin:10px 0 12px">${g.tip}</p>
+    <div class="grape">${[['바디',g.body],['타닌',g.tannin],['산도',g.acid],['당도',g.sweet]].map(([n, v]) => `<div class="bar">${n}<i><b style="width:${v * 20}%"></b></i></div>`).join('')}</div>
+    <dl class="kv small" style="margin-top:12px"><dt>대표 향</dt><dd>${g.kw}</dd><dt>대표 산지</dt><dd>${g.reg}</dd><dt>어울리는 음식</dt><dd>${g.food}</dd></dl>
+  </div>
+  <div class="chips scroll" style="margin-bottom:10px"><button class="chip ${learnUI.band === 'all' ? 'on' : ''}" data-act="band" data-v="all">모든 가격</button>${BANDS.map(b => `<button class="chip ${learnUI.band === b.id ? 'on' : ''}" data-act="band" data-v="${b.id}">${b.n}</button>`).join('')}</div>
+  <div class="card"><ul class="wl">${ws.length ? ws.map(w => { const did = names.some(n => n && (n.includes(norm(w.n).slice(0, 6)) || norm(w.n).includes(n))); return `<li><div><div style="font-weight:600">${esc(w.n)}</div><div class="muted small">${w.c}${did ? ' · <span class="done">✓ 마셔봄</span>' : ''}</div><div class="links" style="margin-top:6px"><a href="${searchUrl.vivino(w.en)}" target="_blank" rel="noopener">Vivino</a><a href="https://www.google.com/search?q=${encodeURIComponent(w.n + ' 와인 평점')}" target="_blank" rel="noopener">리뷰 검색</a></div></div><div class="p">${BANDS.find(b => b.id === w.b).n}</div></li>`; }).join('') : '<li class="muted">이 가격대엔 대표 와인을 아직 정리하지 않았어요. 아래 AI에게 추천받아 보세요.</li>'}</ul>
+    <p class="note">가격대는 국내 소매가 기준의 대략적인 구분이에요. 매장·빈티지·시기에 따라 달라요.</p></div>
+
+${SAMPLE ? '' : ''}
+
+  <div class="sec"><h2>믿을 만한 와인 정보 소스</h2></div>
+  <div class="card">${SOURCES.map(s => `<a class="src" href="${s.u}" target="_blank" rel="noopener"><span class="n">${esc(s.n)} ↗</span><span class="d">${esc(s.d)}</span><span class="sc">${esc(s.sc)}</span></a>`).join('')}</div>
+
+  <div class="sec"><h2>와알못 기초 지식</h2></div>
+  <div class="card">
+    <details><summary>평론가 점수 읽는 법</summary><ul><li>미국식 100점: 대체로 90점 이상이면 아주 좋은 와인, 95점 이상은 특별한 와인으로 봐요.</li><li>잰시스 로빈슨은 20점 만점, Vivino는 일반인 5점 만점 별점이에요.</li><li>점수는 참고용! 내 별점이 나만의 기준이 돼요.</li></ul></details>
+    <details><summary>시음 용어 (이 앱의 항목들)</summary><ul><li><b>타닌</b>: 입이 마르고 떫은 느낌. 포도 껍질·씨에서 와요. 주로 레드.</li><li><b>바디감</b>: 입 안에서 느끼는 무게. 물(가벼움) ↔ 우유(묵직).</li><li><b>점도</b>: 잔을 돌린 뒤 흘러내리는 "와인의 눈물"이 굵고 느리면 진득한 편.</li><li><b>산도</b>: 침이 고이는 상큼함. 높을수록 음식과 잘 어울려요.</li><li><b>여운</b>: 삼킨 뒤 맛이 남는 시간. 길수록 좋은 와인으로 봐요.</li></ul></details>
+    <details><summary>집에서 보관하는 법</summary><ul><li>12~14℃ 정도로 서늘하고 온도 변화가 적은 곳.</li><li>코르크 와인은 눕혀서, 빛과 진동은 피하기.</li><li>대부분의 데일리 와인은 사고 1~3년 안에 마시는 게 좋아요. 장기 숙성용은 일부예요.</li></ul></details>
+    <details><summary>마시기 좋은 온도</summary><ul><li>스파클링·디저트: 6~8℃</li><li>가벼운 화이트·로제: 8~10℃</li><li>묵직한 화이트·가벼운 레드: 12~14℃</li><li>묵직한 레드: 15~18℃ (냉장고에서 꺼내 30분)</li></ul></details>
+    <details><summary>빈티지가 뭐예요?</summary><p>포도를 수확한 해예요. 날씨에 따라 해마다 맛이 달라서, 같은 와인도 빈티지별로 평가가 달라요. 라벨에 연도가 없으면 여러 해를 섞은 NV(Non-Vintage)예요.</p></details>
+  </div>`;
+}
+function learnWine(t){
+  const w = S().wines[t.wineId] || t.wine || {};
+  const q = encodeURIComponent(w.name + (w.vintage ? ' ' + w.vintage : ''));
+  openSheet(`<div class="hero">${bottle(w, 'b')}<div><div class="muted small">내 별점 ${stars(t.rating)}</div><div class="t">${esc(w.name)}</div><div class="muted">${[w.vintage, w.country, w.grape].filter(Boolean).map(esc).join(' · ')}</div></div></div>
+    <div class="card"><div style="font-weight:700">전문가 리뷰·점수 찾아보기</div>
+      <div class="links"><a href="${searchUrl.vivino(enGuess(w.name))}" target="_blank" rel="noopener">Vivino 별점</a><a href="${searchUrl.ws(enGuess(w.name))}" target="_blank" rel="noopener">Wine-Searcher</a><a href="https://www.wine21.com" target="_blank" rel="noopener">와인21</a><a href="https://www.google.com/search?q=${encodeURIComponent((w.name || '') + ' 와인 평론가 점수 리뷰')}" target="_blank" rel="noopener">구글 리뷰 검색</a></div>
+      <p class="note">영문 이름으로 검색하면 해외 사이트에서 더 잘 찾아져요.</p></div>
+    `, { onMount(p){
+    const b = p.querySelector('#lw-go'); if(!b) return;
+    b.onclick = async () => { b.disabled = true; const out = p.querySelector('#lw-out'); out.innerHTML = '<span class="spin"></span>해설을 준비하는 중…';
+      try{ await ask(`당신은 와인 초보자에게 설명하는 친절한 소믈리에입니다. 아래 와인에 대해 한국어로 짧게 해설하세요.
+와인: ${w.name} ${w.vintage || ''} / 국가: ${w.country || '?'} / 품종: ${w.grape || '?'}
+내가 쓴 노트: 별점 ${t.rating}/5(0.5점 단위), 재구매 ${REBUY[t.rebuy]?.n}, 특징 ${TRAITS.map(x => x.n + ' ' + (t.traits?.[x.k] ?? '?')).join(', ')}, 향 ${(t.aromas || []).join(', ') || '없음'}
+형식(마크다운 기호 없이 일반 텍스트):
+1) 어떤 와인인가 (생산자·산지·스타일 2~3문장)
+2) 전문가들이 보통 주목하는 점 (2~3문장. 구체적인 평론가 점수는 확실히 알 때만, 아니면 "점수는 링크에서 확인"이라고 쓰기. 절대 지어내지 말 것)
+3) 내 노트와 비교한 한마디
+4) 이걸 좋아했다면 마셔볼 만한 와인 2개 (국내에서 구하기 쉬운 것)
+확실하지 않은 정보는 "추정"이라고 표시하세요.`, { modelTier:'default', onText: ({text}) => { out.textContent = text; } }).then(txt => { if(txt) out.textContent = txt; }); }
+      catch(e){ out.textContent = aiErr(e); }
+      b.disabled = false; };
+  }});
+}
+async function aiAsk(kind, custom){
+  if(learnUI.aiBusy || !SAMPLE) return;
+  const g = GRAPES.find(x => x.id === learnUI.grape);
+  const band = BANDS.find(b => b.id === learnUI.band);
+  const ts = tastings().slice(0, 25).map(t => { const w = S().wines[t.wineId] || t.wine || {}; return `- ${w.name} (${w.grape || '?'}, ${w.country || '?'}${w.price ? ', ' + w.price + '원' : ''}): 별점 ${t.rating}, ${REBUY[t.rebuy]?.n}, 당도${t.traits?.sweet} 산도${t.traits?.acid} 타닌${t.traits?.tannin} 바디${t.traits?.body}`; }).join('\n') || '(아직 기록 없음)';
+  const ask_ = {
+    rec: `${g.n} 품종 와인 중 ${band ? band.n + ' 가격대에서 ' : ''}내 취향에 맞을 와인 3개를 한국에서 구하기 쉬운 것으로 추천하고 이유를 한 줄씩.`,
+    next: `내가 아직 안 마셔본 품종 중 다음에 도전할 품종 2개와 입문용 와인을 하나씩 추천.`,
+    taste: `내 시음 기록으로 본 내 와인 취향을 3줄로 정리하고, 앞으로 고를 때 볼 라벨 키워드를 알려줘.`
+  }[kind] || custom;
+  learnUI.aiBusy = true; learnUI.ai = ''; learnUI.q = kind === 'custom' ? custom : ''; render();
+  try{
+    const txt = await ask(`당신은 와인 초보자를 돕는 한국어 소믈리에입니다. 마크다운 기호 없이 일반 텍스트로, 짧고 친근하게 답하세요. 가격은 대략이라고 밝히고, 평론가 점수는 확실하지 않으면 쓰지 마세요.
+[내 시음 기록]
+${ts}
+[아직 안 마셔본 품종] ${GRAPES.filter(x => !triedGrapes().has(x.id)).map(x => x.n).join(', ')}
+[질문] ${ask_}`, { modelTier:'default', onText: ({text}) => { learnUI.ai = text; const o = $('#ai-out'); if(o) o.textContent = text; } });
+    if(txt) learnUI.ai = txt;
+  }catch(e){ learnUI.ai = aiErr(e); }
+  learnUI.aiBusy = false; render();
+}
+
+/* ================= TAB 4: more ================= */
+function viewMore(){
+  const st = S().settings;
+  return `${header('더보기', '')}
+  <div class="card"><div class="row" style="gap:14px"><div class="avatar" style="background:var(--vine)">${esc((st.nickname || '와').slice(0, 1))}</div><div><div style="font-weight:700;font-size:17px">${esc(st.nickname)}</div><div class="muted small">${st.createdAt ? esc(st.createdAt) + '부터 홀짝 중' : ''}</div></div></div>
+    <div class="stats" style="margin-top:14px"><div><b>${inCellar().reduce((s, w) => s + (+w.qty || 1), 0)}</b><span>보관 중</span></div><div><b>${tastings().length}</b><span>시음 노트</span></div><div><b>${triedGrapes().size}</b><span>마셔본 품종</span></div></div></div>
+  <div class="list-h">계정</div><div class="list">
+    <button class="li" data-act="nick">닉네임 변경 <span class="r">${esc(st.nickname)} ›</span></button>
+    <div class="li" style="cursor:default">저장 위치 <span class="r">${Store.mode === 'db' ? 'Claude 계정 (다른 기기에서도 이어서)' : '이 브라우저에만'}</span></div></div>
+  <div class="list-h">설정</div><div class="list">
+    <div class="li" style="cursor:default">오래 보관 알림 <span class="r"><select id="set-long">${LONG_OPTS.map(([v, n]) => `<option value="${v}" ${st.longMonths == v ? 'selected' : ''}>${n}</option>`).join('')}</select></span></div>
+    <div class="li" style="cursor:default">셀러 기본 정렬 <span class="r"><select id="set-sort">${[['recent','최근 구매순'],['old','오래 보관순'],['price','가격 높은순'],['vintage','빈티지순']].map(([v, n]) => `<option value="${v}" ${st.sort === v ? 'selected' : ''}>${n}</option>`).join('')}</select></span></div></div>
+  <p class="note" style="margin:6px 4px 0">고른 기간보다 오래 보관한 와인이 있으면 셀러 위쪽에 알려드려요.</p>
+  <div class="list-h">데이터</div><div class="list">
+    <button class="li" data-act="backup">백업 파일 내보내기 <span class="r">.json ›</span></button>
+    <button class="li" data-act="restore">백업 불러오기 <span class="r">›</span></button>
+    <button class="li" data-act="reset" style="color:#A23B2A">모든 기록 초기화 <span class="r">›</span></button></div>
+  <div class="list-h">앱 만든 이</div>
+  <div class="card"><div class="maker"><div class="avatar">궁</div><div style="flex:1"><div style="font-weight:700">궁뎅이형</div><div class="muted small">“와알못도 즐겁게 홀짝일 수 있도록 만들었어요.”</div></div></div>
+    <div class="mlinks"><button class="btn soft sm" data-act="maker-insta">인스타그램</button><button class="btn soft sm" data-act="maker-mail">문의</button></div></div>
+  <div class="list-h">앱 정보</div><div class="card small">
+    <div class="row between"><span>와알못의 홀짝 시음기</span><span class="muted">v1.0 · 웹앱</span></div>
+    <p class="note" style="margin:8px 0 0">와인 공부 탭의 정보 소스는 와인21, Vivino, Wine Folly, Wine Spectator, Wine Advocate, Jancis Robinson, Decanter 등 널리 인용되는 매체를 골라 정리했어요.</p></div>`;
+}
+function nickSheet(){
+  openSheet(`<h2>닉네임 변경</h2><form id="nf"><label class="f"><span>닉네임</span><input name="n" maxlength="16" value="${esc(S().settings.nickname)}"></label><button class="btn block">저장</button></form>`, { onMount(p){
+    const f = p.querySelector('#nf'); f.n.focus(); f.onsubmit = e => { e.preventDefault(); const n = f.n.value.trim(); if(!n) return; Store.setSettings({nickname:n}); closeSheet(); render(); toast('바꿨어요'); }; }});
+}
+async function backup(){
+  const data = JSON.stringify({app:'wine-sipping', exportedAt:new Date().toISOString(), ...S()}, null, 2);
+  const filename = `홀짝시음기_백업_${today()}.json`;
+  if(DL){ try{ await DL.save({filename, data}); toast('저장했어요'); return; }catch(e){ if(e && e.code === 'declined') return; } }
+  try{ const url = URL.createObjectURL(new Blob([data], {type:'application/json'})); const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000); toast('백업 파일을 내려받았어요'); return; }catch(e){}
+  openSheet(`<h2>백업 내보내기</h2><p class="muted small">이 화면에서는 파일 저장이 막혀 있어요. 아래 내용을 복사해 메모장에 붙여 .json 파일로 보관하세요.</p><button class="btn block" id="bk-c">전체 복사</button>`, { onMount(p){ p.querySelector('#bk-c').onclick = () => copyText(data); } });
+}
+async function restore(){
+  const file = await pickFile('.json,application/json'); if(!file) return;
+  let d; try{ d = JSON.parse(await file.text()); }catch(e){ toast('백업 파일을 읽지 못했어요'); return; }
+  if(!d || !d.wines){ toast('이 앱의 백업 파일이 아니에요'); return; }
+  openSheet(`<h2>백업 불러오기</h2><p>와인 ${Object.keys(d.wines || {}).length}병, 시음 노트 ${Object.keys(d.tastings || {}).length}개를 지금 기록에 합칠까요? 같은 항목은 백업 내용으로 바뀌어요.</p><button class="btn block" id="rt-go">불러오기</button>`, { onMount(p){
+    p.querySelector('#rt-go').onclick = () => { for(const k of ['wines','tastings','market']) for(const it of Object.values(d[k] || {})) if(it && it.id) Store.put(k, it);
+      if(d.settings) Store.setSettings(d.settings); closeSheet(); render(); toast('불러왔어요'); }; }});
+}
+function resetSheet(){
+  openSheet(`<h2>모든 기록 초기화</h2><p>셀러의 와인, 시음 노트, 설정이 모두 지워져요. 되돌릴 수 없으니 먼저 백업을 내보내 두세요.</p>
+    <button class="btn soft block" data-act="backup">백업 먼저 내보내기</button>
+    <label class="f" style="margin-top:14px"><span>계속하려면 ‘초기화’라고 입력하세요</span><input id="rs-i" autocomplete="off"></label>
+    <button class="btn warn block" id="rs-go" disabled>초기화</button>`, { onMount(p){
+      const i = p.querySelector('#rs-i'), go = p.querySelector('#rs-go');
+      i.oninput = () => go.disabled = i.value.trim() !== '초기화';
+      go.onclick = async () => { await Store.resetAll(); closeSheet(); location.hash = 'cellar'; render(); toast('초기화했어요'); };
+  }});
+}
+function confirmSheet(title, msg, btn, fn){
+  openSheet(`<h2>${title}</h2><p>${msg}</p><button class="btn warn block" id="cf-go">${btn}</button><button class="btn soft block" style="margin-top:8px" data-act="close">취소</button>`, { onMount(p){ p.querySelector('#cf-go').onclick = () => { fn(); closeSheet(); render(); }; } });
+}
+function demo(){
+  const d = (m) => { const x = new Date(); x.setMonth(x.getMonth() - m); return x.toISOString().slice(0, 10); };
+  [{name:'몬테스 알파 카베르네 소비뇽', country:'칠레', region:'콜차구아 밸리', grape:'카베르네 소비뇽', vintage:'2021', type:'red', buyDate:d(14), price:'32000', shop:'예시 데이터', qty:2},
+   {name:'클라우디 베이 소비뇽 블랑', country:'뉴질랜드', region:'말보로', grape:'소비뇽 블랑', vintage:'2023', type:'white', buyDate:d(3), price:'58000', shop:'예시 데이터', qty:1},
+   {name:'모엣 & 샹동 브뤼 앵페리얼', country:'프랑스', region:'샹파뉴', grape:'샤르도네·피노 누아', vintage:'', type:'sparkling', buyDate:d(27), price:'89000', shop:'예시 데이터', qty:1, memo:'예시: 기념일에 열기'}]
+   .forEach(w => Store.put('wines', {...w, id:uid(), createdAt:today()}));
+  render(); toast('예시 와인을 넣었어요. 더보기에서 초기화할 수 있어요.', 3200);
+}
+
+/* ================= render & routing ================= */
+const header = (t, sub) => `<div class="top"><div><h1>${t}</h1>${sub ? `<div class="sub">${sub}</div>` : ''}</div><span class="badge">${Store.mode === 'db' ? '☁︎ 계정에 저장 중' : '이 브라우저에 저장'}</span></div>`;
+const TABS = ['cellar','notes','stash','learn','more'];
+let TAB = 'cellar';
+function render(){
+  const h = location.hash.slice(1); TAB = TABS.includes(h) ? h : 'cellar';
+  const y = window.scrollY, prev = render._tab;
+  $('#app').innerHTML = ({cellar:viewCellar, notes:viewNotes, stash:viewStash, learn:viewLearn, more:viewMore})[TAB]();
+  document.querySelectorAll('.tabbar a').forEach(a => a.classList.toggle('on', a.dataset.tab === TAB));
+  if(prev === TAB) window.scrollTo(0, y); else window.scrollTo(0, 0);
+  render._tab = TAB;
+  const cs = $('#csort'); if(cs) cs.onchange = () => { Store.setSettings({sort:cs.value}); render(); };
+  const sl = $('#set-long'); if(sl) sl.onchange = () => { Store.setSettings({longMonths:+sl.value}); toast('바꿨어요'); };
+  const ss = $('#set-sort'); if(ss) ss.onchange = () => { Store.setSettings({sort:ss.value}); toast('바꿨어요'); };
+  wireStashSearch();
+  const aq = $('#aiq'); if(aq) aq.onsubmit = e => { e.preventDefault(); const v = $('#aiq-i').value.trim(); if(v) aiAsk('custom', v); };
+}
+window.addEventListener('hashchange', render);
+
+const ACT = {
+  'close': () => closeSheet(),
+  'ctype': el => { cellarUI.type = el.dataset.v; render(); },
+  'new-wine': () => wineForm({}),
+  'demo': () => demo(),
+  'wine': el => { const w = S().wines[el.dataset.id]; if(w) wineDetail(w); },
+  'edit-wine': el => { const w = S().wines[el.dataset.id]; if(w) wineForm(w); },
+  'del-wine': el => { const w = S().wines[el.dataset.id]; if(w) confirmSheet('와인 삭제', `‘${esc(w.name)}’을(를) 셀러에서 지울까요? 이 와인의 시음 노트는 그대로 남아요.`, '삭제', () => { Store.del('wines', w.id); toast('지웠어요'); }); },
+  'drink': el => { const w = S().wines[el.dataset.id]; if(w) tastingForm({}, w); },
+  'restock': el => { const w = S().wines[el.dataset.id]; if(w){ Store.put('wines', {...w, qty:1, finishDate:'', buyDate:today()}); closeSheet(); render(); toast('셀러에 다시 넣었어요'); } },
+  'nf': el => { notesUI.f = el.dataset.v; render(); },
+  'new-tasting': () => pickWineForTasting(),
+  'tasting-free': () => tastingForm({}, {}),
+  'tasting': el => { const t = S().tastings[el.dataset.id]; if(t) tastingDetail(t); },
+  'edit-tasting': el => { const t = S().tastings[el.dataset.id]; if(t) tastingForm(t); },
+  'del-tasting': el => { const t = S().tastings[el.dataset.id]; if(t) confirmSheet('노트 삭제', '이 시음 노트를 지울까요?', '삭제', () => { Store.del('tastings', t.id); toast('지웠어요'); }); },
+  'learn-wine': el => { const t = S().tastings[el.dataset.id]; if(t) learnWine(t); },
+  'label-find': () => labelFind(),
+  'stash-open': el => { const g = tastedGroups().find(x => x.key === el.dataset.k); if(g) stashSheet(g.wine.name); },
+  'stash-new': el => { const n = el.dataset.n; if(n) stashSheet(n); },
+  'grape': el => { learnUI.grape = el.dataset.v; render(); },
+  'band': el => { learnUI.band = el.dataset.v; render(); },
+  'ai-q': el => aiAsk(el.dataset.v),
+  'nick': () => nickSheet(),
+  'backup': () => backup(),
+  'restore': () => restore(),
+  'reset': () => resetSheet(),
+  'maker-insta': () => openSheet(`<h2>궁뎅이형 인스타그램</h2>
+    <div class="row" style="gap:14px;margin-bottom:16px"><div class="avatar">궁</div><div><div style="font-weight:700">@arc_o_o</div><div class="muted small">instagram.com/arc_o_o</div></div></div>
+    <a class="btn block" style="display:flex;align-items:center;justify-content:center;text-decoration:none" href="https://www.instagram.com/arc_o_o/" target="_blank" rel="noopener">인스타그램에서 보기</a>
+    <button class="btn soft block" style="margin-top:8px" id="mk-copy">링크 복사</button>`, { onMount(p){ p.querySelector('#mk-copy').onclick = () => copyText('https://www.instagram.com/arc_o_o/'); } }),
+  'maker-mail': () => openSheet(`<h2>문의하기</h2>
+    <p class="muted small" style="margin-top:-6px">앱에 대한 의견이나 궁금한 점을 메일로 보내주세요.</p>
+    <div style="font-size:18px;font-weight:700;text-align:center;padding:16px;background:var(--card);border:1px solid var(--line);border-radius:14px;user-select:all;word-break:break-all">sadfinga@naver.com</div>
+    <button class="btn block" style="margin-top:14px" id="mk-mail-copy">메일 주소 복사</button>
+    <a class="btn soft block" style="display:flex;align-items:center;justify-content:center;text-decoration:none;margin-top:8px" href="mailto:sadfinga@naver.com?subject=${encodeURIComponent('[와알못의 홀짝 시음기] 문의')}">메일 앱으로 보내기</a>
+    <p class="note" style="margin-top:10px">메일 앱이 열리지 않으면 주소를 복사해서 보내주세요.</p>`, { onMount(p){ p.querySelector('#mk-mail-copy').onclick = () => copyText('sadfinga@naver.com'); } })
+};
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'); if(!el) return;
+  const fn = ACT[el.dataset.act]; if(!fn) return;
+  e.preventDefault(); fn(el);
+});
+
+Store.loadLocal();
+render();
+Store.connect();
+caps();
+}
+</script>
+</body>
+</html>
