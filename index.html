@@ -370,10 +370,11 @@ const tastings = () => Object.values(S().tastings).sort((a, b) => (b.date || '')
 
 /* ================= capabilities ================= */
 let SAMPLE = null, DL = null;
-const BUILD_GH = true;
 const GKEY = 'wine.gemini';
 const gemKey = () => { try{ return localStorage.getItem(GKEY) || ''; }catch(e){ return ''; } };
-const GEM_MODELS = ['gemini-flash-latest', 'gemini-3.5-flash-lite', 'gemini-2.5-flash'];
+const BUILD_GH = true;
+const GEM_MODELS = ['gemini-flash-lite-latest', 'gemini-3.5-flash-lite', 'gemini-2.5-flash-lite'];
+const AUTO_AI_EN = !BUILD_GH;   /* GitHub판은 영문 변환에 AI를 쓰지 않음(무료 할당량 아끼기) */
 async function blobToB64(b){ return new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.onerror = rej; fr.readAsDataURL(b); }); }
 const GEM_HINT = {
   ACCESS_TOKEN_TYPE_UNSUPPORTED:'Google이 이 새 형식(AQ.) 키를 아직 받아주지 않아요(Google 쪽 문제로 알려져 있어요). AI Studio에서 키를 새로 만들거나 잠시 뒤 다시 해보세요.',
@@ -388,17 +389,18 @@ async function geminiCall(key, prompt, opts = {}){
   const text = typeof prompt === 'string' ? prompt : prompt.map(m => m.content).join('\n\n');
   const parts = [{text}];
   for(const img of (opts.images || [])) parts.push({inline_data:{mime_type:img.type || 'image/jpeg', data:await blobToB64(img)}});
-  const body = JSON.stringify({contents:[{role:'user', parts}]});
+  const body = JSON.stringify({contents:[{role:'user', parts}], generationConfig:{maxOutputTokens:opts.maxTokens || 800}});
   let last = null;
   for(const model of GEM_MODELS){
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
     let r, d;
     /* 1차: x-goog-api-key 헤더, 인증 오류면 2차: ?key= 주소 방식으로 한 번 더 */
     for(const mode of ['header', 'query']){
+      const ac = new AbortController(), tm = setTimeout(() => ac.abort(), opts.timeout || 25000);
       try{ r = mode === 'header'
-        ? await fetch(url, {method:'POST', headers:{'Content-Type':'application/json', 'x-goog-api-key':key}, body})
-        : await fetch(url + '?key=' + encodeURIComponent(key), {method:'POST', headers:{'Content-Type':'application/json'}, body}); }
-      catch(e){ throw {code:'network', message:'인터넷 연결을 확인하거나, 회사·학교 와이파이라면 다른 네트워크로 해보세요.'}; }
+        ? await fetch(url, {method:'POST', headers:{'Content-Type':'application/json', 'x-goog-api-key':key}, body, signal:ac.signal})
+        : await fetch(url + '?key=' + encodeURIComponent(key), {method:'POST', headers:{'Content-Type':'application/json'}, body, signal:ac.signal}); clearTimeout(tm); }
+      catch(e){ clearTimeout(tm); if(e && e.name === 'AbortError') throw {code:'timeout', message:'Gemini 응답이 너무 늦어요. 잠시 뒤 다시 해주세요.'}; throw {code:'network', message:'인터넷 연결을 확인하거나, 회사·학교 와이파이라면 다른 네트워크로 해보세요.'}; }
       d = await r.json().catch(() => ({}));
       if(!(r.status === 401 || r.status === 403)) break;
     }
@@ -675,7 +677,7 @@ function wineForm(w = {}, srcFile = null){
       <div style="font-weight:600">라벨 사진으로 병 만들기</div><div class="note" style="margin:0 0 8px">병 전체가 나오게 <b>세로로</b> 찍으면, 같은 사진에서 본 라벨과 병목 라벨을 차례로 맞춰 붙여요.</div>
       <div class="row wrap"><button type="button" class="btn sm" id="wf-ph">📷 ${photo ? '사진 바꾸기' : '사진 찍기·고르기'}</button>${photo ? '<button type="button" class="btn sm soft" id="wf-rm">사진 빼기</button>' : ''}</div>
       ${photo ? `<button type="button" class="btn sm ghost" id="wf-aibtn" style="margin-top:8px;width:100%">✨ AI로 라벨 읽어 자동 입력</button>` : ''}
-      <div class="note" id="wf-ai">${!SAMPLE ? '더보기에서 Gemini 키를 연결하면 AI가 라벨을 읽어 채워줘요.' : photo ? '이름·국가·지역·품종·빈티지·종류를 사진에서 읽어 채워드려요.' : '사진을 고르면 AI가 라벨을 읽어 자동으로 채워드려요.'}</div></div></div>
+      <div class="note" id="wf-ai">${!SAMPLE ? '사진을 고르면 라벨 글자를 읽어 와인 이름을 찾아드려요.' : photo ? '이름·국가·지역·품종·빈티지·종류를 사진에서 읽어 채워드려요.' : '사진을 고르면 AI가 라벨을 읽어 자동으로 채워드려요.'}</div></div></div>
     <form id="wf">
       <div class="seg" id="wf-type">${TYPES.slice(0, 5).map(t => `<button type="button" data-v="${t.id}" class="${type === t.id ? 'on' : ''}">${t.name}</button>`).join('')}</div>
       <label class="f"><span>와인 이름 *</span><input name="name" required value="${esc(w.name)}" placeholder="예: 몬테스 알파 카베르네 소비뇽"></label>
@@ -702,7 +704,7 @@ function wineForm(w = {}, srcFile = null){
       p.querySelector('#wf-ph').onclick = async () => {
         const file = await pickFile('image/*'); if(!file) return;
         const vals = Object.fromEntries(new FormData(f)); vals.type = type;
-        cropLabel(file, (url, nurl) => { wineForm({...w, ...vals, photo:url, neckPhoto:nurl, price:vals.price, qty:vals.qty}, file); if(SAMPLE && !vals.name) readLabel(file, false); });
+        cropLabel(file, (url, nurl) => { wineForm({...w, ...vals, photo:url, neckPhoto:nurl, price:vals.price, qty:vals.qty}, file); if(!vals.name){ if(SAMPLE) readLabel(file, false); else if(BUILD_GH) ocrFillForm(file); } });
       };
       const ab = p.querySelector('#wf-aibtn');
       if(ab) ab.onclick = () => { if(!SAMPLE){ toast('이 화면에서는 AI를 쓸 수 없어요'); return; } readLabel(srcFile || dataUrlToBlob(photo), true); };
@@ -714,7 +716,7 @@ function wineForm(w = {}, srcFile = null){
 async function readLabel(file, overwrite){
   const note = $('#wf-ai'), ab = $('#wf-aibtn'); if(note) note.innerHTML = '<span class="spin"></span>AI가 라벨을 읽는 중…'; if(ab) ab.disabled = true;
   try{
-    const img = await loadImg(file); const blob = await shrink(img, 1280);
+    const img = await loadImg(file); const blob = await shrink(img, BUILD_GH ? 768 : 1280);
     const txt = await ask(`이 와인 라벨 사진을 보고 다음 JSON만 출력하세요. 모르는 값은 빈 문자열.
 {"name":"한국어로 흔히 부르는 와인 이름(생산자+와인명)","nameEn":"라벨에 적힌 원어/영문 이름(생산자+와인명)","country":"생산 국가(한국어)","region":"지역(한국어)","grape":"주 품종(한국어)","vintage":"4자리 연도","type":"red|white|rose|sparkling|dessert 중 하나"}`, {images:[blob], modelTier:'quick'});
     const m = txt.match(/\{[\s\S]*\}/); if(!m) throw 0; const d = JSON.parse(m[0]);
@@ -930,7 +932,7 @@ const enGuess = name => enCached(name) || (hasKo(name) ? dictEn(name).text : nam
 const enPending = {};
 async function ensureEn(name){
   const c = enCached(name); if(c) return c;
-  if(!SAMPLE) return '';
+  if(!SAMPLE || !AUTO_AI_EN) return '';
   if(!enPending[name]) enPending[name] = (async () => {
     try{
       const txt = await ask(`다음 와인 이름을 Vivino·Wine-Searcher에서 검색할 영문(원어) 표기로 바꿔주세요. 생산자 + 와인명만, 빈티지·따옴표·설명 없이 한 줄로만 출력.
@@ -979,8 +981,8 @@ function viewStash(){
   const groups = tastedGroups();
   return `${header('와인 쟁여놓기', '매장에서 라벨 보고 바로 찾고, 시세와 비교해요')}
   <button class="btn block" data-act="label-find" style="margin-bottom:6px">📷 라벨 찍어서 찾기</button>
-  <p class="note" style="margin:0 2px 4px">${SAMPLE ? '라벨을 찍으면 AI가 읽어서, 마셔본 와인이면 내 평가를 바로 보여줘요.' : '라벨 인식은 더보기에서 Gemini 키를 연결하면 쓸 수 있어요.'}</p>
-  ${stashUI.msg ? `<div class="card small">${stashUI.busy ? '<span class="spin"></span>' : ''}${esc(stashUI.msg)}</div>` : ''}
+  <p class="note" style="margin:0 2px 4px">라벨을 찍으면 휴대폰 안에서 글자를 읽어, 내 와인과 와인 목록에서 찾아줘요. 키 등록은 필요 없어요.</p>
+  ${stashUI.msg ? `<div class="card small" id="st-msg">${stashUI.busy && !/spin/.test(stashUI.msg) ? '<span class="spin"></span>' : ''}${/^<span class="spin">/.test(stashUI.msg) ? stashUI.msg : esc(stashUI.msg)}</div>` : ''}
 
   <div class="sec"><h2>마셔본 와인</h2><span class="muted small">별점 높은 순 · ${groups.length}종</span></div>
   ${groups.length ? groups.map(x => `<button class="item st" data-act="stash-open" data-k="${esc(x.key)}">${labelThumb(x.wine)}<div>
@@ -1044,7 +1046,7 @@ function wireStashSearch(){
     const c = enCached(raw);
     if(c){ eni.value = c; info.textContent = ''; apply(); return; }
     const g = dictEn(raw); eni.value = g.text; apply();
-    if(!SAMPLE){ info.textContent = g.guessed ? '모르는 단어가 있어 발음대로 바꿨어요. 아래 추천에서 고르거나, 네이버에서 영문 이름을 확인해 고쳐주세요.' : ''; return; }
+    if(!SAMPLE || !AUTO_AI_EN){ info.textContent = g.guessed ? '모르는 단어가 있어 발음대로 바꿨어요. 아래 추천에서 고르거나, 네이버에서 영문 이름을 확인해 고쳐주세요.' : ''; return; }
     info.innerHTML = '<span class="spin"></span>AI로 더 정확한 영문 이름을 찾는 중…';
     timer = setTimeout(async () => { const en = await ensureEn(raw); if(my !== seq) return;
       info.textContent = ''; if(en && !edited){ eni.value = en; apply(); } }, 700);
@@ -1084,7 +1086,7 @@ function stashSheet(name, opt = {}){
       <div class="two" style="margin-top:8px">
         <a class="btn sm" style="display:flex;align-items:center;justify-content:center;text-decoration:none;background:rgba(255,255,255,.16);color:#fff" href="${searchUrl.naver(name)}" target="_blank" rel="noopener">네이버 최저가 ↗</a>
         <a class="btn sm" style="display:flex;align-items:center;justify-content:center;text-decoration:none;background:rgba(255,255,255,.16);color:#fff" id="pv-ws" href="${searchUrl.ws(enQ)}" target="_blank" rel="noopener">Wine-Searcher ↗</a></div>
-      <div id="pv-en" style="font-size:12.5px;opacity:.9;margin-top:10px">${hasKo(name) ? (enCached(name) ? `영문 검색어: <b>${esc(enCached(name))}</b>` : SAMPLE ? '<span class="spin"></span>영문 이름으로 바꾸는 중…' : `영문 검색어(자동 변환): <b>${esc(enQ)}</b>`) : ''}
+      <div id="pv-en" style="font-size:12.5px;opacity:.9;margin-top:10px">${hasKo(name) ? (enCached(name) ? `영문 검색어: <b>${esc(enCached(name))}</b>` : (SAMPLE && AUTO_AI_EN) ? '<span class="spin"></span>영문 이름으로 바꾸는 중…' : `영문 검색어(자동 변환): <b>${esc(enQ)}</b>`) : ''}
         ${hasKo(name) ? ` <button class="btn sm" id="pv-ed" style="min-height:28px;padding:2px 9px;font-size:12px;background:rgba(255,255,255,.18);color:#fff;margin-left:4px">수정</button>` : ''}</div>
       <form id="pv-f" style="display:none;margin-top:8px" class="row"><input id="pv-i" value="${esc(enQ)}" placeholder="영문 이름 (예: Catena Malbec)" style="flex:1;border:none;border-radius:10px;padding:8px 10px;min-height:40px;color:#24161B"><button class="btn sm" style="background:#fff;color:var(--wine)">저장</button></form>
       ${paid ? `<div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.25);display:flex;justify-content:space-between;font-size:14px"><span style="opacity:.85">내가 전에 산 가격</span><b style="font-size:17px">${won(paid)}</b></div>` : ''}
@@ -1107,7 +1109,7 @@ function stashSheet(name, opt = {}){
       const box = p.querySelector('#pv-en'); const ed = p.querySelector('#pv-ed'); box.innerHTML = `영문 검색어: <b>${esc(en)}</b> `; if(ed) box.appendChild(ed); p.querySelector('#pv-i').value = en; };
     const ed = p.querySelector('#pv-ed'); if(ed) ed.onclick = () => { const f = p.querySelector('#pv-f'); f.style.display = f.style.display === 'none' ? 'flex' : 'none'; };
     const pf = p.querySelector('#pv-f'); pf.onsubmit = e => { e.preventDefault(); const v = p.querySelector('#pv-i').value.trim(); if(!v) return; saveEn(name, v); applyEn(v); pf.style.display = 'none'; toast('영문 이름을 저장했어요'); };
-    if(hasKo(name) && !enCached(name) && SAMPLE) ensureEn(name).then(en => { if(!p.isConnected || !p.querySelector('#pv-vv')) return;
+    if(hasKo(name) && !enCached(name) && SAMPLE && AUTO_AI_EN) ensureEn(name).then(en => { if(!p.isConnected || !p.querySelector('#pv-vv')) return;
       if(en) applyEn(en); else if(enQ !== name) applyEn(enQ); else { const box = p.querySelector('#pv-en'); box.firstChild && (box.firstChild.textContent = ''); box.insertAdjacentText('afterbegin', '영문 변환 실패 · 수정을 눌러 직접 넣어주세요 '); } });
     p.querySelector('#st-buy').onclick = () => {
       const base = cellarW || w;
@@ -1118,11 +1120,15 @@ function stashSheet(name, opt = {}){
 }
 
 async function labelFind(){
+  if(BUILD_GH){ const file = await pickCamera(); if(file) labelFindOCR(file); return; }
   if(!SAMPLE){ toast('더보기에서 Gemini 키를 먼저 연결해주세요', 3000); return; }
   const file = await pickFile('image/*'); if(!file) return;
+  labelFindAI(file);
+}
+async function labelFindAI(file){
   stashUI.busy = true; stashUI.msg = 'AI가 라벨을 읽는 중…'; render();
   try{
-    const img = await loadImg(file); const blob = await shrink(img, 1280);
+    const img = await loadImg(file); const blob = await shrink(img, BUILD_GH ? 768 : 1280);
     const snap = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); });
     const tasted = tastedGroups().map(x => x.wine.name).slice(0, 80);
     const txt = await ask(`매장에서 찍은 와인 라벨 사진이에요. 다음 JSON만 출력하세요.
@@ -1135,6 +1141,121 @@ async function labelFind(){
     else if(d.name){ stashUI.msg = `‘${d.name}’ — 아직 안 마셔본 와인이에요.`; stashUI.q = d.name; render(); stashSheet(d.name, {photo:snap, wine:{name:d.name, vintage:d.vintage}}); }
     else throw 0;
   }catch(e){ stashUI.busy = false; stashUI.msg = e && e.code ? aiErr(e) : '라벨을 읽지 못했어요. 라벨이 정면으로 크게 나오게 다시 찍어주세요.'; render(); }
+}
+
+/* ================= 키 없이 라벨 글자 읽기 (휴대폰 안에서 OCR) + 와인 찾기 ================= */
+const OCR_SRC = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+let ocrWorkerP = null;
+function loadOcr(onProg){
+  if(!ocrWorkerP) ocrWorkerP = (async () => {
+    if(!window.Tesseract) await new Promise((res, rej) => { const s = document.createElement('script'); s.src = OCR_SRC; s.onload = res; s.onerror = () => rej({code:'ocr_load'}); document.head.appendChild(s); });
+    return Tesseract.createWorker('eng', 1, { logger: m => { if(ocrWorkerP && ocrWorkerP.prog) ocrWorkerP.prog(m); } });
+  })().catch(e => { ocrWorkerP = null; throw e; });
+  ocrWorkerP.prog = onProg;
+  return ocrWorkerP;
+}
+function prepCanvas(img, max = 1500){
+  const s = Math.min(1, max / Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height));
+  const c = document.createElement('canvas'); c.width = Math.round((img.naturalWidth || img.width) * s); c.height = Math.round((img.naturalHeight || img.height) * s);
+  const g = c.getContext('2d'); g.drawImage(img, 0, 0, c.width, c.height);
+  const d = g.getImageData(0, 0, c.width, c.height), a = d.data;
+  for(let i = 0; i < a.length; i += 4){ let v = .3 * a[i] + .59 * a[i + 1] + .11 * a[i + 2]; v = Math.max(0, Math.min(255, (v - 128) * 1.35 + 128)); a[i] = a[i + 1] = a[i + 2] = v; }
+  g.putImageData(d, 0, 0); return c;
+}
+async function ocrRead(img, onProg){
+  const w = await loadOcr(onProg);
+  const r = await w.recognize(prepCanvas(img));
+  return (r && r.data && r.data.text) || '';
+}
+const latin = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const OCR_STOP = new Set('wine wines vin vino vinho red white rouge blanc rosso bianco tinto the and of de du des la le les di del della y el en au aux est produced bottled product produce contains contient sulfites sulphites alc vol ml cl appellation controlee origine protegee denominazione controllata garantita mis bouteille imported importer by for from with grape grapes vintage reserve reserva riserva'.split(' '));
+const ocrTokens = text => { const out = new Set(); for(const t of latin(text).split(' ')) if((t.length >= 3 || /\d/.test(t) && /[a-z]/.test(t)) && !OCR_STOP.has(t) && !/^\d+$/.test(t)) out.add(t); return [...out]; };
+function lev(a, b){ if(a === b) return 0; const m = a.length, n = b.length; if(Math.abs(m - n) > 2) return 9; let p = Array.from({length:n + 1}, (_, j) => j);
+  for(let i = 1; i <= m; i++){ const c = [i]; for(let j = 1; j <= n; j++) c[j] = Math.min(p[j] + 1, c[j - 1] + 1, p[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); p = c; } return p[n]; }
+function hist(src, center){
+  const c = document.createElement('canvas'); c.width = c.height = 24; const g = c.getContext('2d');
+  const W = src.naturalWidth || src.width, H = src.naturalHeight || src.height;
+  if(center) g.drawImage(src, W * .2, H * .2, W * .6, H * .6, 0, 0, 24, 24); else g.drawImage(src, 0, 0, 24, 24);
+  const a = g.getImageData(0, 0, 24, 24).data, h = new Float32Array(64);
+  for(let i = 0; i < a.length; i += 4) h[(a[i] >> 6) * 16 + (a[i + 1] >> 6) * 4 + (a[i + 2] >> 6)] += 1 / 576;
+  return h;
+}
+const histSim = (x, y) => { let s = 0; for(let i = 0; i < 64; i++) s += Math.min(x[i], y[i]); return s; };
+function wineCandidates(){
+  const map = new Map();
+  const add = (ko, en, extra = {}) => { if(!en || hasKo(en)) return; const k = latin(en); if(!k) return; const cur = map.get(k) || {ko, en, toks:ocrTokens(en)}; map.set(k, {...cur, ...extra, ko:cur.tasted || cur.cellar ? cur.ko : (extra.tasted || extra.cellar ? ko : cur.ko)}); };
+  WINE_NAMES.forEach(x => add(x.ko, x.en)); KB_WINES.forEach(x => add(x.n, x.en));
+  wines().forEach(w => add(w.name, enGuess(w.name), {cellar:(+w.qty || 0) > 0, photo:w.photo || ''}));
+  tastedGroups().forEach(gp => add(gp.wine.name, enGuess(gp.wine.name), {tasted:true, avg:gp.avg, photo:gp.wine.photo || (wines().find(x => norm(x.name) === gp.key) || {}).photo || ''}));
+  return [...map.values()].filter(x => x.toks.length);
+}
+async function matchLabel(text, img){
+  const ot = ocrTokens(text); const cands = wineCandidates();
+  const df = new Map(); cands.forEach(c => new Set(c.toks).forEach(t => df.set(t, (df.get(t) || 0) + 1)));
+  const N = cands.length, wt = t => Math.log(1 + N / (df.get(t) || 1));
+  const has = t => ot.some(o => o === t || (t.length >= 4 && Math.abs(o.length - t.length) <= 2 && lev(o, t) <= (t.length >= 7 ? 2 : 1)) || (t.length >= 5 && o.length >= 5 && (o.startsWith(t) || t.startsWith(o))));
+  const shot = img ? hist(img, true) : null;
+  const res = [];
+  for(const c of cands){
+    let tot = 0, got = 0, hits = 0;
+    for(const t of c.toks){ const w = wt(t); tot += w; if(has(t)){ got += w; hits++; } }
+    let score = tot ? got / tot : 0;
+    if(!hits) continue;
+    if(c.tasted) score += .08;
+    if(shot && c.photo){ try{ const im = await loadImgUrl(c.photo); score += Math.max(0, histSim(shot, hist(im)) - .35) * .5; }catch(e){} }
+    res.push({...c, score:Math.min(1, score), hits});
+  }
+  return res.filter(r => r.score >= .34).sort((a, b) => (b.score + b.hits * .04) - (a.score + a.hits * .04)).slice(0, 5);
+}
+const imgCache = new Map();
+function loadImgUrl(u){ if(imgCache.has(u)) return imgCache.get(u); const p = new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = u; }); imgCache.set(u, p); return p; }
+const vintageIn = text => { const m = String(text).match(/\b(19[5-9]\d|20[0-3]\d)\b/); return m ? m[1] : ''; };
+const ocrProgText = m => m && m.status === 'recognizing text' ? `라벨 글자 읽는 중… ${Math.round((m.progress || 0) * 100)}%` : m && /load|initial/.test(m.status || '') ? '글자 인식 도구 준비 중… (처음 한 번만 몇 초 걸려요)' : '';
+
+function ocrResultSheet(list, text, snap, file){
+  const words = ocrTokens(text).filter(t => t.length >= 4).slice(0, 4).join(' ');
+  openSheet(`<h2>${list.length ? '이 와인인가요?' : '비슷한 와인을 못 찾았어요'}</h2>
+    ${snap ? `<div class="lbl" style="padding:10px;margin-bottom:12px"><button class="main" data-src="${snap}"><img src="${snap}" alt="찍은 라벨" style="max-height:200px"></button></div>` : ''}
+    ${list.map((c, n) => `<button class="item st" data-n="${n}" style="grid-template-columns:64px minmax(0,1fr)">${c.photo ? `<img class="lt" src="${c.photo}" alt="" style="height:80px;max-width:64px">` : bottle({name:c.ko}, 'b')}<div>
+        <div class="t">${esc(c.ko)}</div><div class="s">${esc(c.en)}</div>
+        <div class="s">${c.tasted ? `<span class="rb r1" style="margin:0 6px 0 0">마셔봄 ★${(Math.round(c.avg * 2) / 2).toFixed(1)}</span>` : ''}${c.cellar ? '<span class="rb r0" style="margin:0 6px 0 0">셀러에 있음</span>' : ''}일치도 ${Math.round(c.score * 100)}%</div></div></button>`).join('')}
+    ${!list.length ? '<p class="small muted">라벨 글자가 장식체이거나 사진이 흐리면 잘 못 읽어요. 라벨을 정면으로, 밝은 곳에서 크게 찍어보세요.</p>' : ''}
+    ${SAMPLE ? `<button class="btn ghost block" id="oc-ai" style="margin-top:6px">✨ AI로 다시 찾기 <span style="font-weight:500;font-size:13px">(AI 1회 사용)</span></button>` : ''}
+    ${words ? `<button class="btn soft block" id="oc-q" style="margin-top:8px">목록에 없어요 · ‘${esc(words)}’로 검색</button>` : ''}
+    <details style="margin-top:10px"><summary style="font-size:13px;font-weight:500">라벨에서 읽은 글자 보기</summary><p class="small" style="white-space:pre-wrap;word-break:break-word">${esc(text.trim() || '(읽은 글자 없음)')}</p></details>`,
+  { onMount(p){
+    p.querySelectorAll('.lbl button[data-src]').forEach(b => b.onclick = () => lightbox(b.dataset.src));
+    p.querySelectorAll('button.item[data-n]').forEach(b => b.onclick = () => { const c = list[+b.dataset.n]; if(!c.tasted && hasKo(c.ko)) saveEn(c.ko, c.en); stashUI.msg = ''; render(); stashSheet(c.ko, {photo:snap, wine:{name:c.ko, vintage:vintageIn(text)}}); });
+    const q = p.querySelector('#oc-q'); if(q) q.onclick = () => { stashUI.q = words; stashUI.msg = ''; closeSheet(); render(); const i = $('#st-q'); if(i){ i.scrollIntoView({block:'center'}); } };
+    const ai = p.querySelector('#oc-ai'); if(ai) ai.onclick = () => { closeSheet(); labelFindAI(file); };
+  }});
+}
+async function labelFindOCR(file){
+  stashUI.busy = true; stashUI.msg = '글자 인식 도구 준비 중… (처음 한 번만 몇 초 걸려요)'; render();
+  try{
+    const img = await loadImg(file); const blob = await shrink(img, BUILD_GH ? 768 : 1280);
+    const snap = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); });
+    const text = await ocrRead(img, m => { const t = ocrProgText(m); const el = $('#st-msg'); if(t && el) el.innerHTML = '<span class="spin"></span>' + esc(t); });
+    stashUI.msg = '<span class="spin"></span>내 와인·와인 목록과 비교하는 중…'; render();
+    const list = await matchLabel(text, img);
+    stashUI.busy = false;
+    stashUI.msg = list.length ? `라벨에서 후보 ${list.length}개를 찾았어요.` : '라벨과 맞는 와인을 못 찾았어요.'; render();
+    ocrResultSheet(list, text, snap, file);
+  }catch(e){ stashUI.busy = false; stashUI.msg = e && e.code === 'ocr_load' ? '글자 인식 도구를 불러오지 못했어요. 인터넷 연결을 확인해주세요.' : '라벨을 읽지 못했어요. 다시 찍어주세요.'; render(); }
+}
+/* 와인 등록할 때 키 없이 라벨 글자로 이름 채우기 */
+async function ocrFillForm(file){
+  const note = $('#wf-ai'); if(note) note.innerHTML = '<span class="spin"></span>라벨 글자를 읽는 중…';
+  try{
+    const img = await loadImg(file);
+    const text = await ocrRead(img, m => { const t = ocrProgText(m); const n = $('#wf-ai'); if(t && n) n.innerHTML = '<span class="spin"></span>' + esc(t); });
+    const best = (await matchLabel(text, null)).filter(c => c.score >= .55)[0];
+    const f = $('#wf'); if(!f) return;
+    const v = vintageIn(text); if(v && !f.vintage.value) f.vintage.value = v;
+    if(best){ if(!f.name.value) f.name.value = best.ko; if(!f.nameEn.value) f.nameEn.value = best.en; f.name.dispatchEvent(new Event('input'));
+      const n = $('#wf-ai'); if(n) n.textContent = `라벨 글자로 ‘${best.ko}’를 찾았어요. 맞는지 확인해주세요.`; }
+    else { const n = $('#wf-ai'); if(n) n.textContent = v ? `빈티지(${v})만 읽었어요. 이름은 직접 입력해주세요.` : '라벨에서 아는 와인을 못 찾았어요. 직접 입력해주세요.'; }
+  }catch(e){ const n = $('#wf-ai'); if(n) n.textContent = '라벨 글자를 읽지 못했어요. 직접 입력해주세요.'; }
 }
 
 /* ================= TAB 4: learn ================= */
@@ -1256,7 +1377,7 @@ function viewMore(){
   <p class="note" style="margin:6px 4px 0">고른 기간보다 오래 보관한 와인이 있으면 셀러 위쪽에 알려드려요.</p>
   ${BUILD_GH ? `<div class="list-h">AI 기능 (Gemini)</div><div class="list">
     <button class="li" data-act="gemini">Gemini API 키 <span class="r">${gemKey() ? '연결됨 ✓ ›' : '연결 안 됨 ›'}</span></button></div>
-    <p class="note" style="margin:6px 4px 0">키를 넣으면 라벨 찍어서 찾기, 라벨 자동 입력, AI 영문 변환·해설을 쓸 수 있어요.</p>` : ''}
+    <p class="note" style="margin:6px 4px 0">키가 없어도 라벨 글자 인식으로 와인을 찾을 수 있어요. 키를 넣으면 ‘AI로 다시 찾기’, AI 라벨 자동 입력, AI 소믈리에·해설을 쓸 수 있어요. 무료 사용량이 작아서 AI는 버튼을 누를 때만 쓰도록 했어요.</p>` : ''}
   <div class="list-h">데이터</div><div class="list">
     <button class="li" data-act="backup">백업 파일 내보내기 <span class="r">.json ›</span></button>
     <button class="li" data-act="restore">백업 불러오기 <span class="r">›</span></button>
@@ -1265,7 +1386,7 @@ function viewMore(){
   <div class="card"><div class="maker"><div class="avatar">궁</div><div style="flex:1"><div style="font-weight:700">궁뎅이형</div><div class="muted small">“와알못도 즐겁게 홀짝일 수 있도록 만들었어요.”</div></div></div>
     <div class="mlinks"><button class="btn soft sm" data-act="maker-insta">인스타그램</button><button class="btn soft sm" data-act="maker-mail">문의</button></div></div>
   <div class="list-h">앱 정보</div><div class="card small">
-    <div class="row between"><span>와알못의 홀짝 시음기</span><span class="muted">v1.2 · 웹앱</span></div>
+    <div class="row between"><span>와알못의 홀짝 시음기</span><span class="muted">v1.3 · 웹앱</span></div>
     <p class="note" style="margin:8px 0 0">와인 공부 탭의 정보 소스는 와인21, Vivino, Wine Folly, Wine Spectator, Wine Advocate, Jancis Robinson, Decanter 등 널리 인용되는 매체를 골라 정리했어요. AI 기능은 연결한 Gemini가 도와드려요.</p></div>`;
 }
 function geminiSheet(){
@@ -1286,7 +1407,7 @@ function geminiSheet(){
     const i = p.querySelector('#gk-i'), msg = p.querySelector('#gk-msg'), sv = p.querySelector('#gk-save');
     sv.onclick = async () => { const k = i.value.trim(); if(!k){ msg.textContent = '키를 붙여넣어 주세요.'; return; }
       sv.disabled = true; msg.innerHTML = '<span class="spin"></span>연결 확인 중…';
-      try{ const r = await geminiCall(k, '"OK"라고만 답하세요.'); if(!r.text) throw {code:'error', message:'Gemini가 빈 답을 보냈어요.'};
+      try{ const r = await geminiCall(k, '"OK"라고만 답하세요.', {timeout:15000, maxTokens:10}); if(!r.text) throw {code:'error', message:'Gemini가 빈 답을 보냈어요.'};
         try{ localStorage.setItem(GKEY, k.replace(/[\s"'“”‘’]/g, '')); }catch(e){} useGemini(); closeSheet(); render(); toast('Gemini를 연결했어요 ✨'); }
       catch(e){ msg.innerHTML = `<b style="color:#B23A2A">연결하지 못했어요.</b> ${esc(e.message || '')}${e.raw ? `<details style="padding:4px 0;border:none"><summary style="font-weight:500;font-size:12px">Google이 보낸 원문 보기</summary><p style="font-size:12px;word-break:break-all">${esc(e.raw)}</p></details>` : ''}`; }
       sv.disabled = false; };
