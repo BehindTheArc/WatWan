@@ -150,7 +150,7 @@ label.f textarea{min-height:84px;resize:vertical}
 .acts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px}.acts.four{grid-template-columns:repeat(4,minmax(0,1fr))}.acts .btn{padding:10px 6px;font-size:14px}
 @media(max-width:400px){.acts.four{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .glass{display:flex;gap:8px;overflow-x:auto;margin-top:8px}.glass button{flex:none;border:none;padding:0;background:none;text-align:center}
-.glass img{display:block;width:96px;height:120px;object-fit:cover;border-radius:10px;box-shadow:0 3px 8px rgba(40,10,20,.25)}.glass small{display:block;font-size:12px;color:var(--muted);margin-top:3px}
+.glass img{display:block;width:140px;height:175px;object-fit:cover;border-radius:10px;box-shadow:0 3px 8px rgba(40,10,20,.25)}.glass small{display:block;font-size:12px;color:var(--muted);margin-top:3px}
 .opened{display:inline-block;font-size:12px;font-weight:700;color:#fff;background:var(--wine);border-radius:99px;padding:1px 8px;margin-top:3px}
 .tags{display:flex;flex-wrap:wrap;gap:6px}
 .tag{font-size:12.5px;background:var(--soft);border-radius:99px;padding:3px 10px}
@@ -643,10 +643,10 @@ function wineDetail(w){
     </dl>
     ${ts.length ? `<div class="list-h">이 와인의 시음 노트</div>${ts.map(t => `<button class="item" data-act="tasting" data-id="${t.id}" style="grid-template-columns:minmax(0,1fr)"><div>${stars(t.rating)}${rebuyBadge(t.rebuy)}<div class="s">${esc(t.date)}${t.oneLine ? ' · ' + esc(t.oneLine) : ''}</div></div></button>`).join('')}` : ''}
     ${w.openedAt ? `<div class="card"><div class="row between"><b>🍾 코르크 오픈</b><span class="muted small">${esc(w.openedAt)} · ${period(w.openedAt) === '오늘' ? '오늘 열었어요' : period(w.openedAt) + '째'}</span></div>
-      ${(w.glass || []).length ? `<div class="glass">${w.glass.map(g => `<button data-src="${g.photo}" data-act="glass-view"><img src="${g.photo}" alt="잔에 따른 와인"><small>${esc(g.date.slice(5).replace('-', '.'))}</small></button>`).join('')}</div>` : '<p class="small muted" style="margin:6px 0 0">아직 잔 사진이 없어요.</p>'}
+      ${(w.glass || []).length ? `<div class="glass">${w.glass.slice(-1).map(g => `<button data-src="${g.photo}" data-act="glass-view"><img src="${g.photo}" alt="잔에 따른 와인"><small>${esc(g.date.slice(5).replace('-', '.'))}</small></button>`).join('')}</div>` : '<p class="small muted" style="margin:6px 0 0">아직 잔 사진이 없어요.</p>'}
       <p class="note" style="margin-top:8px">다 마시면 ‘마셨어요’로 시음 노트를 남겨주세요. 잔 사진도 노트에 함께 옮겨져요.</p></div>` : ''}
     <div class="acts ${held ? 'four' : ''}">
-      ${held ? `<button class="btn ${w.openedAt ? 'soft' : 'ghost'}" data-act="cork" data-id="${w.id}">${w.openedAt ? '📷 잔 사진' : '🍾 코르크 오픈'}</button>` : ''}
+      ${held ? `<button class="btn ${w.openedAt ? 'soft' : 'ghost'}" data-act="cork" data-id="${w.id}">${w.openedAt ? ((w.glass || []).length ? '📷 사진 바꾸기' : '📷 잔 사진') : '🍾 코르크 오픈'}</button>` : ''}
       ${held ? `<button class="btn" data-act="drink" data-id="${w.id}">🍷 마셨어요</button>` : `<button class="btn" data-act="restock" data-id="${w.id}">다시 들임</button>`}
       <button class="btn soft" data-act="edit-wine" data-id="${w.id}">수정</button>
       <button class="btn soft" data-act="del-wine" data-id="${w.id}">삭제</button>
@@ -656,17 +656,30 @@ function wineDetail(w){
 function pickCamera(){
   return new Promise(res => { const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.setAttribute('capture', 'environment'); i.onchange = () => res(i.files[0] || null); i.click(); });
 }
-async function corkOpen(w){
-  const file = await pickCamera(); if(!file){ if(!w.openedAt){ Store.put('wines', {...w, openedAt:today(), glass:[]}); render(); wineDetail(S().wines[w.id]); toast('코르크를 열었어요 🍾'); } return; }
+/* 코르크 오픈 / 잔 사진: 바로 찍기 또는 보관함에서 고르기, 잔 사진은 한 장만 (새로 올리면 바뀜) */
+function corkSheet(w){
+  const opened = !!w.openedAt, hasPhoto = !!(w.glass || []).length;
+  openSheet(`<h2>${opened ? (hasPhoto ? '잔 사진 바꾸기' : '잔 사진 올리기') : '🍾 코르크 오픈'}</h2>
+    <p class="small muted" style="margin-top:-6px">${opened ? (hasPhoto ? '새 사진을 올리면 지금 사진이 바뀌어요.' : '잔에 따른 와인 사진을 한 장 남겨보세요.') : '잔에 따른 와인 사진을 한 장 남길 수 있어요.'}</p>
+    <button class="btn block" id="ck-cam">📷 바로 찍기</button>
+    <button class="btn soft block" style="margin-top:8px" id="ck-lib">🖼 보관함에서 고르기</button>
+    ${!opened ? `<button class="btn ghost block" style="margin-top:8px" id="ck-none">사진 없이 오픈만 하기</button>` : ''}
+    ${hasPhoto ? `<button class="btn ghost block" style="margin-top:8px;color:#A23B2A;border-color:#A23B2A" id="ck-del">잔 사진 지우기</button>` : ''}`, { onMount(p){
+    p.querySelector('#ck-cam').onclick = async () => { const f = await pickCamera(); if(f) corkSave(w, f); };
+    p.querySelector('#ck-lib').onclick = async () => { const f = await pickFile('image/*'); if(f) corkSave(w, f); };
+    const n = p.querySelector('#ck-none'); if(n) n.onclick = () => { Store.put('wines', {...(S().wines[w.id] || w), openedAt:today(), glass:[]}); render(); wineDetail(S().wines[w.id]); toast('코르크를 열었어요 🍾'); };
+    const d = p.querySelector('#ck-del'); if(d) d.onclick = () => { Store.put('wines', {...(S().wines[w.id] || w), glass:[]}); render(); wineDetail(S().wines[w.id]); toast('잔 사진을 지웠어요'); };
+  }});
+}
+async function corkSave(w, file){
   try{
     const img = await loadImg(file); const s = Math.min(1, 900 / Math.max(img.naturalWidth, img.naturalHeight));
     const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
     c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-    const photo = c.toDataURL('image/jpeg', .76);
+    const photo = c.toDataURL('image/jpeg', .78);
     const cur = S().wines[w.id] || w;
-    const glass = [...(cur.glass || []), {date:today(), photo}].slice(-4);
-    Store.put('wines', {...cur, openedAt:cur.openedAt || today(), glass});
-    render(); wineDetail(S().wines[w.id]); toast(cur.openedAt ? '잔 사진을 추가했어요' : '코르크를 열었어요 🍾');
+    Store.put('wines', {...cur, openedAt:cur.openedAt || today(), glass:[{date:today(), photo}]});
+    render(); wineDetail(S().wines[w.id]); toast(cur.openedAt ? '잔 사진을 올렸어요' : '코르크를 열었어요 🍾');
   }catch(e){ toast('사진을 열지 못했어요'); }
 }
 function dataUrlToBlob(u){ const [h, b] = u.split(','); const bin = atob(b); const a = new Uint8Array(bin.length); for(let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return new Blob([a], {type:(h.match(/:(.*?);/) || [])[1] || 'image/jpeg'}); }
@@ -823,7 +836,7 @@ function tastingDetail(t){
   openSheet(`<div class="hero">${bottle(w, 'b')}<div><div class="muted small">${esc(t.date)} 시음</div><div class="t">${esc(w.name || '')}</div>
       <div><span style="font-size:20px">${stars(t.rating)}</span></div><div style="margin-top:4px">${rebuyBadge(t.rebuy).replace('margin-left:6px', '')}</div></div></div>
     ${t.oneLine ? `<div class="card" style="font-family:var(--serif);font-size:18px">“${esc(t.oneLine)}”</div>` : ''}
-    ${(t.glass || []).length ? `<div class="card"><b>🍾 잔 사진</b> <span class="muted small">${esc(t.openedAt || '')} 오픈</span><div class="glass">${t.glass.map(g => `<button data-src="${g.photo}" data-act="glass-view"><img src="${g.photo}" alt="잔에 따른 와인"><small>${esc(g.date.slice(5).replace('-', '.'))}</small></button>`).join('')}</div></div>` : ''}
+    ${(t.glass || []).length ? `<div class="card"><b>🍾 잔 사진</b> <span class="muted small">${esc(t.openedAt || '')} 오픈</span><div class="glass">${t.glass.slice(-1).map(g => `<button data-src="${g.photo}" data-act="glass-view"><img src="${g.photo}" alt="잔에 따른 와인"><small>${esc(g.date.slice(5).replace('-', '.'))}</small></button>`).join('')}</div></div>` : ''}
     <div class="card">${radar(t.traits || {})}</div>
     ${(t.texture || []).length || (t.aromas || []).length ? `<div class="card">${(t.texture || []).length ? `<div class="muted small">텍스처</div><div class="tags" style="margin:4px 0 10px">${t.texture.map(x => `<span class="tag">${esc(x)}</span>`).join('')}</div>` : ''}
       ${(t.aromas || []).length ? `<div class="muted small">향</div><div class="tags" style="margin-top:4px">${t.aromas.map(x => `<span class="tag">${esc(x)}</span>`).join('')}</div>` : ''}</div>` : ''}
@@ -1482,7 +1495,7 @@ const ACT = {
   'wine': el => { const w = S().wines[el.dataset.id]; if(w) wineDetail(w); },
   'edit-wine': el => { const w = S().wines[el.dataset.id]; if(w) wineForm(w); },
   'del-wine': el => { const w = S().wines[el.dataset.id]; if(w) confirmSheet('와인 삭제', `‘${esc(w.name)}’을(를) 셀러에서 지울까요? 이 와인의 시음 노트는 그대로 남아요.`, '삭제', () => { Store.del('wines', w.id); toast('지웠어요'); }); },
-  'cork': el => { const w = S().wines[el.dataset.id]; if(w) corkOpen(w); },
+  'cork': el => { const w = S().wines[el.dataset.id]; if(w) corkSheet(w); },
   'glass-view': el => lightbox(el.dataset.src),
   'drink': el => { const w = S().wines[el.dataset.id]; if(w) tastingForm({}, w); },
   'restock': el => { const w = S().wines[el.dataset.id]; if(w){ Store.put('wines', {...w, qty:1, finishDate:'', buyDate:today()}); closeSheet(); render(); toast('셀러에 다시 넣었어요'); } },
