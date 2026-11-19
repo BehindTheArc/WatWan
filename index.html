@@ -1132,11 +1132,16 @@ function stashSheet(name, opt = {}){
   }});
 }
 
-async function labelFind(){
-  if(BUILD_GH){ const file = await pickCamera(); if(file) labelFindOCR(file); return; }
-  if(!SAMPLE){ toast('더보기에서 Gemini 키를 먼저 연결해주세요', 3000); return; }
-  const file = await pickFile('image/*'); if(!file) return;
-  labelFindAI(file);
+function labelFind(){
+  if(!BUILD_GH && !SAMPLE){ toast('더보기에서 Gemini 키를 먼저 연결해주세요', 3000); return; }
+  const go = file => { if(!file) return; closeSheet(); BUILD_GH ? labelFindOCR(file) : labelFindAI(file); };
+  openSheet(`<h2>📷 라벨 찍어서 찾기</h2>
+    <p class="small muted" style="margin-top:-6px">라벨이 정면으로, 크고 밝게 나오면 더 잘 찾아요.</p>
+    <button class="btn block" id="lf-cam">📷 바로 찍기</button>
+    <button class="btn soft block" style="margin-top:8px" id="lf-lib">🖼 보관함에서 고르기</button>`, { onMount(p){
+    p.querySelector('#lf-cam').onclick = async () => go(await pickCamera());
+    p.querySelector('#lf-lib').onclick = async () => go(await pickFile('image/*'));
+  }});
 }
 async function labelFindAI(file){
   stashUI.busy = true; stashUI.msg = 'AI가 라벨을 읽는 중…'; render();
@@ -1399,7 +1404,7 @@ function viewMore(){
   <div class="card"><div class="maker"><div class="avatar">궁</div><div style="flex:1"><div style="font-weight:700">궁뎅이형</div><div class="muted small">“와알못도 즐겁게 홀짝일 수 있도록 만들었어요.”</div></div></div>
     <div class="mlinks"><button class="btn soft sm" data-act="maker-insta">인스타그램</button><button class="btn soft sm" data-act="maker-mail">문의</button></div></div>
   <div class="list-h">앱 정보</div><div class="card small">
-    <div class="row between"><span>와알못의 홀짝 시음기</span><span class="muted">v1.4 · 웹앱</span></div>
+    <div class="row between"><span>와알못의 홀짝 시음기</span><span class="muted">v1.5 · 웹앱</span></div>
     <p class="note" style="margin:8px 0 0">와인 공부 탭의 정보 소스는 와인21, Vivino, Wine Folly, Wine Spectator, Wine Advocate, Jancis Robinson, Decanter 등 널리 인용되는 매체를 골라 정리했어요. AI 기능은 연결한 Gemini가 도와드려요.</p></div>`;
 }
 function geminiSheet(){
